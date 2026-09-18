@@ -1,10 +1,9 @@
-package org.firstinspires.ftc.teamcode.opmodes;
+package org.firstinspires.ftc.teamcode.pedro.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
 @TeleOp(name = "BIOBUZZ Shooter PIDF Tester", group = "Testing")
 public class BIOBUZZ_ShooterPIDFTester extends LinearOpMode {
