@@ -21,6 +21,9 @@ public class LimelightIDTester extends LinearOpMode {
     private final double minhiveHeight = 135.9;  // cm
     private final double downhiveHeight = 77.7;  // cm
 
+    private final int[] redIDs = {30,31,32,33,34,35,36,37};
+    private final int[] blueIDs = {38,39,40,41,42,43,44,45};
+
 
 
 
@@ -38,11 +41,26 @@ public class LimelightIDTester extends LinearOpMode {
                 double ty = result.getTy();
                 Pose3D botpose = result.getBotpose();
                 Integer seenId = getVisibleTagId(result);
-                telemetry.addData("Tag ID seen", seenId != null ? seenId : "none");
                 double rawDist = getDistance(ty);
-                //double targetRPM = interpolateRPM(distance);
-                telemetry.addData("distance", rawDist);
-                // telemetry.addData("target RPM", targetRPM);
+
+                if (seenId != null) {//
+                    for (int id : redIDs) {
+                        if (id == seenId) {
+                            telemetry.addData("Tag ID seen", seenId);
+                            telemetry.addData("distance", rawDist);
+                            telemetry.addLine("Detecting Red ID");
+                           // break;
+                        }
+                    }
+
+                    for(int id : blueIDs){
+                        if(id == seenId){
+                            telemetry.addData("Tag ID seen", seenId);
+                            telemetry.addData("distance", rawDist);
+                            telemetry.addLine("Detecting Blue ID");
+                        }
+                    }
+                }
 
                 if (botpose != null) {
                     telemetry.addData("BotPose (X, Y)", "%.2f, %.2f", botpose.getPosition().x, botpose.getPosition().y);
@@ -53,7 +71,6 @@ public class LimelightIDTester extends LinearOpMode {
                 }
                 telemetry.addData("tx", tx);
                 telemetry.addData("ty", ty);
-                telemetry.addData("Distance: ", rawDist);
 
 
             }else {
@@ -86,9 +103,4 @@ public class LimelightIDTester extends LinearOpMode {
     }
 
 }
-//limelight in bottom half of robot
-//sense  how many balls are in the cell to calc weight determine how many more balls needed
-//turret based on where we are on the field calculate the height
 
-//april tag mapping this friday
-//april tag position next friday
