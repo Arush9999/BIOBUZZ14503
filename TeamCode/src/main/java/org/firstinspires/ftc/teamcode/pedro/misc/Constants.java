@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.pedro;
+package org.firstinspires.ftc.teamcode.pedro.misc;
 
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
@@ -32,7 +32,7 @@ public class Constants {
     );
 
     public static PinpointConfig localizerConfig = new PinpointConfig(
-    c -> {
+        c -> {
             c.name.set("pinpoint");
             c.podType.set(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
             c.xPodOffset.set(-4.52919156532588);
