@@ -15,8 +15,8 @@ public class Robot_Centric_Drive extends LinearOpMode {
         DcMotor RF = hardwareMap.dcMotor.get("RF");
         DcMotor RB = hardwareMap.dcMotor.get("RB");
 
-        LF.setDirection(DcMotorSimple.Direction.REVERSE);
-        LB.setDirection(DcMotorSimple.Direction.REVERSE);
+        RF.setDirection(DcMotorSimple.Direction.REVERSE);
+        RB.setDirection(DcMotorSimple.Direction.REVERSE);
 
         waitForStart();
 
