@@ -11,8 +11,8 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
 import java.util.List;
 
-@Autonomous (name = "LLTester")
-public class LimelightIDTester extends LinearOpMode {
+@Autonomous (name = "LLBlue")
+public class LimelightBlueTester extends LinearOpMode {
     private Limelight3A limelight;
 
     // TODO: Measure and set these constants physically on robot
@@ -23,10 +23,7 @@ public class LimelightIDTester extends LinearOpMode {
     private double smoothed = 0;
     private int lastId = -1;
 
-    private final int[] redIDs = {30,31,32,33,34,35,36,37};
     private final int[] blueIDs = {38,39,40,41,42,43,44,45};
-
-
 
 
     @Override
@@ -52,7 +49,7 @@ public class LimelightIDTester extends LinearOpMode {
                     assert p != null;
                     double distCm = Math.sqrt(p.getPosition().x*p.getPosition().x + p.getPosition().y*p.getPosition().y + p.getPosition().z*p.getPosition().z) * 100;
 
-                    if (id != lastId) smoothed = 0;
+                    if (id != lastId && contains(blueIDs,id)) smoothed = 0;
                     lastId = id;
 
                     if (distCm > 0) {
@@ -69,15 +66,12 @@ public class LimelightIDTester extends LinearOpMode {
 
                     double aimAngle = Math.toDegrees(Math.atan2(cellRise, floorDist));
 
+                    telemetry.addLine("Blue Alliance data");
                     telemetry.addData("Tag ID", id);
                     telemetry.addData("Camera -> tag (cm)", "%.1f", smoothed);
                     telemetry.addData("Floor dist (cm)", "%.1f", floorDist);
                     telemetry.addData("Camera -> cell top (cm)", "%.1f", cellDist);
                     telemetry.addData("Aim angle to cell top (deg)", "%.1f", aimAngle);
-
-                    if (contains(redIDs, id))       telemetry.addLine("Alliance: RED");
-                    else if (contains(blueIDs, id)) telemetry.addLine("Alliance: BLUE");
-                    else                            telemetry.addLine("Alliance: unknown ID");
 
 
                     telemetry.addData("tx / ty", "%.2f / %.2f", result.getTx(), result.getTy());
