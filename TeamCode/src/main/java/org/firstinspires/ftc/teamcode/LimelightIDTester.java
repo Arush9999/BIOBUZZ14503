@@ -16,10 +16,12 @@ public class LimelightIDTester extends LinearOpMode {
     private Limelight3A limelight;
 
     // TODO: Measure and set these constants physically on robot
-    private final double cameraHeight = 15.0; // cm
-    private final double cameraAngle = 20.0;  // degrees
+
+    private final double camHeight = 15.0;
     private final double minhiveHeight = 135.9;  // cm
     private final double downhiveHeight = 77.7;  // cm
+    private double smoothed = 0;
+    private int lastId = -1;
 
     private final int[] redIDs = {30,31,32,33,34,35,36,37};
     private final int[] blueIDs = {38,39,40,41,42,43,44,45};
@@ -36,71 +38,76 @@ public class LimelightIDTester extends LinearOpMode {
 
         while (opModeIsActive()) {
             LLResult result = limelight.getLatestResult();
+
             if (result != null && result.isValid()) {
-                double tx = result.getTx();
-                double ty = result.getTy();
-                Pose3D botpose = result.getBotpose();
-                Integer seenId = getVisibleTagId(result);
-                double rawDist = getDistance(ty);
+                LLResultTypes.FiducialResult tag = getBestTag(result);
 
-                if (seenId != null) {//
-                    for (int id : redIDs) {
-                        if (id == seenId) {
-                            telemetry.addData("Tag ID seen", seenId);
-                            telemetry.addData("distance", rawDist);
-                            telemetry.addLine("Detecting Red ID");
-                           // break;
-                        }
+                if (tag != null) {//
+                    int id = tag.getFiducialId();
+                    Pose3D p = tag.getTargetPoseCameraSpace();
+
+                    if (p != null) {
+                        telemetry.addData("Pose (x,y,z): ","%.3f,%.3f%.3f", p.getPosition().x,p.getPosition().y,p.getPosition().z);
+                    }
+                    assert p != null;
+                    double distCm = Math.sqrt(p.getPosition().x*p.getPosition().x + p.getPosition().y*p.getPosition().y + p.getPosition().z*p.getPosition().z) * 100;
+
+                    if (id != lastId) smoothed = 0;
+                    lastId = id;
+
+                    if (distCm > 0) {
+                        smoothed = (smoothed == 0) ? distCm : 0.8 * smoothed + 0.2 * distCm;
                     }
 
-                    for(int id : blueIDs){
-                        if(id == seenId){
-                            telemetry.addData("Tag ID seen", seenId);
-                            telemetry.addData("distance", rawDist);
-                            telemetry.addLine("Detecting Blue ID");
-                        }
-                    }
-                }
+                    // Floor distance from camera to the tag
+                    double tagRise = downhiveHeight - camHeight;
+                    double floorDist = (smoothed > Math.abs(tagRise))
+                            ? Math.sqrt(smoothed * smoothed - tagRise * tagRise):0;
 
-                if (botpose != null) {
-                    telemetry.addData("BotPose (X, Y)", "%.2f, %.2f", botpose.getPosition().x, botpose.getPosition().y);
-                    telemetry.addData("BotPose Yaw: ", botpose.getOrientation().getYaw());
+                    double cellRise = minhiveHeight - camHeight;
+                    double cellDist = Math.sqrt(floorDist * floorDist + cellRise * cellRise);
+
+                    double aimAngle = Math.toDegrees(Math.atan2(cellRise, floorDist));
+
+                    telemetry.addData("Tag ID", id);
+                    telemetry.addData("Camera -> tag (cm)", "%.1f", smoothed);
+                    telemetry.addData("Floor dist (cm)", "%.1f", floorDist);
+                    telemetry.addData("Camera -> cell top (cm)", "%.1f", cellDist);
+                    telemetry.addData("Aim angle to cell top (deg)", "%.1f", aimAngle);
+
+                    if (contains(redIDs, id))       telemetry.addLine("Alliance: RED");
+                    else if (contains(blueIDs, id)) telemetry.addLine("Alliance: BLUE");
+                    else                            telemetry.addLine("Alliance: unknown ID");
+
+
+                    telemetry.addData("tx / ty", "%.2f / %.2f", result.getTx(), result.getTy());
                 }
-                else{
-                    telemetry.addLine("No Valid Data Found");
-                }
-                telemetry.addData("tx", tx);
-                telemetry.addData("ty", ty);
 
 
             }else {
                 telemetry.addLine("Tag detected but ID not recognized");
             }
 
-
             telemetry.update();
         }
         limelight.stop();
     }
 
-    private double getDistance(double ty) {
-        double angleToTarget = cameraAngle + ty;
-        double heightDiff = minhiveHeight-cameraHeight;
 
-        return heightDiff/(Math.tan(Math.toRadians(angleToTarget)));
+
+    private LLResultTypes.FiducialResult getBestTag(LLResult r) {
+        List<LLResultTypes.FiducialResult> f = r.getFiducialResults();
+        if (f == null || f.isEmpty()) return null;
+        LLResultTypes.FiducialResult best = f.get(0);
+        for (LLResultTypes.FiducialResult t : f)
+            if (t.getTargetArea() > best.getTargetArea()) best = t;
+        return best;
     }
 
-    //gets id of seen april tag or return null if doesnt see
-    private Integer getVisibleTagId(LLResult r){
-        List<LLResultTypes.FiducialResult> fiducials = r.getFiducialResults();
-        if (fiducials == null || fiducials.isEmpty()) return null;
 
-        LLResultTypes.FiducialResult best = fiducials.get(0);
-        for (LLResultTypes.FiducialResult f : fiducials) {
-            if (f.getTargetArea() > best.getTargetArea()) best = f;
-        }
-        return best.getFiducialId();
+    private boolean contains(int[] arr, int v) {
+        for (int a : arr) if (a == v) return true;
+        return false;
     }
-
 }
 
