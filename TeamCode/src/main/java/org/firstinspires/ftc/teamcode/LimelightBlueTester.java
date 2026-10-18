@@ -20,8 +20,6 @@ public class LimelightBlueTester extends LinearOpMode {
     private final double camHeight = 15.0;
     private final double minhiveHeight = 135.9;  // cm
     private final double downhiveHeight = 77.7;  // cm
-
-    // the april tags are 3.25in square
     private double smoothed = 0;
     private int lastId = -1;
 
