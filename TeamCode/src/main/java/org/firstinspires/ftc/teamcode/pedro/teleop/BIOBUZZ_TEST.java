@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -18,6 +19,7 @@ import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
 /** Standalone BIOBUZZ TEST OpMode; helper classes are file-local by unique name. */
 /** Select a single subsystem with D-pad during INIT, then START. */
+@Disabled
 @TeleOp(name = "BIOBUZZ TEST")
 public class BIOBUZZ_TEST extends LinearOpMode {
     private static final String[] MODES = {

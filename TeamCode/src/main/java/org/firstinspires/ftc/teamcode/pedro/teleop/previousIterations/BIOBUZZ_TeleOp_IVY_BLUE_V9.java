@@ -61,6 +61,7 @@ package org.firstinspires.ftc.teamcode.pedro.teleop.previousIterations;
 /*
  * FTC SDK imports
  */
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -102,7 +103,7 @@ import static com.pedropathing.ivy.commands.Commands.infinite;
  */
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
-
+@Disabled
 @TeleOp(name = "BIOBUZZ IVY BLUE V9")
 public class BIOBUZZ_TeleOp_IVY_BLUE_V9 extends LinearOpMode {
 

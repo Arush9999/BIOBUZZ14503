@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop.previousIterations;
 
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -13,7 +14,7 @@ import com.pedropathing.api.PoseFactory;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
-
+@Disabled
 @TeleOp(name = "BIOBUZZ_TeleOp_RED")
 public class BIOBUZZ_TeleOp_RED_turret extends LinearOpMode {
 

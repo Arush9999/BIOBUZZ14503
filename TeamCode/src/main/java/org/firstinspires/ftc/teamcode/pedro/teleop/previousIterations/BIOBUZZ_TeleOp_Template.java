@@ -1,12 +1,13 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop.previousIterations;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-
+@Disabled
 @TeleOp(name = "BIOBUZZ TeleOp V1", group = "BIOBUZZ")
 public class BIOBUZZ_TeleOp_Template extends LinearOpMode {
 

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -17,6 +18,7 @@ import static com.pedropathing.ivy.commands.Commands.infinite;
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
 /** Standalone BIOBUZZ RED OpMode; helper classes are file-local by unique name. */
+@Disabled
 @TeleOp(name = "BIOBUZZ RED")
 public class BIOBUZZ_RED extends BiobuzzMatch_RED {
     @Override protected double referenceX() { return 58.0; }
