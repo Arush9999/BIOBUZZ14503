@@ -77,4 +77,8 @@ public class Constants {
                 new Foresight(foresightConfig)
         );
     }
+
+    public static Follower createFollower(HardwareMap hardwareMap) {
+        return null;
+    }
 }
