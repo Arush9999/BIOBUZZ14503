@@ -78,7 +78,5 @@ public class Constants {
         );
     }
 
-    public static Follower createFollower(HardwareMap hardwareMap) {
-        return null;
-    }
+
 }

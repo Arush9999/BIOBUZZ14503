@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -19,7 +20,7 @@ import java.util.List;
 @TeleOp(name = "LLTester")
 public class LimelightIDTester extends LinearOpMode {
     private Limelight3A limelight;
-    private Servo turret;
+    private DcMotor LF,RF,LB,RB;
 
     // TODO: Measure and set these constants physically on robot
 
@@ -44,6 +45,9 @@ public class LimelightIDTester extends LinearOpMode {
     private final int[] redIDs = {30,31,32,33,34,35,36,37};
     private final int[] blueIDs = {38,39,40,41,42,43,44,45};
 
+    public static double DRIVE_SPEED = 1.0;
+    public static double SLOW_SPEED = 0.40;
+
     private final ElapsedTime timer = new ElapsedTime();
 
 
@@ -52,7 +56,19 @@ public class LimelightIDTester extends LinearOpMode {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.pipelineSwitch(0);
         limelight.start();
-        turret = hardwareMap.get(Servo.class, "turret");
+
+        LF = hardwareMap.get(DcMotorEx.class, "LF");
+        RF = hardwareMap.get(DcMotorEx.class, "RF");
+        LB = hardwareMap.get(DcMotorEx.class, "LB");
+        RB = hardwareMap.get(DcMotorEx.class, "RB");
+
+
+        LF.setDirection(DcMotorSimple.Direction.REVERSE);
+        LB.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        RF.setDirection(DcMotorSimple.Direction.FORWARD);
+        RB.setDirection(DcMotorSimple.Direction.FORWARD);
+
         waitForStart();
 
         while (opModeIsActive()) {
@@ -68,11 +84,6 @@ public class LimelightIDTester extends LinearOpMode {
                     Pose3D p = tag.getTargetPoseCameraSpace();
                     double tx = tag.getTargetXDegrees();
 
-                    double error = tag.getTargetXDegrees();
-                    if (Math.abs(error) > 0.5) {
-                        setTurretAngle(turretAngle + DIRECTION * STEP * error);
-                    }
-                    telemetry.addData("Turret err (deg)", "%.2f", error);
 
                     if (p != null) {
                         telemetry.addData("Pose (x,y,z): ","%.3f,%.3f%.3f", p.getPosition().x,p.getPosition().y,p.getPosition().z);
@@ -119,12 +130,55 @@ public class LimelightIDTester extends LinearOpMode {
         limelight.stop();
     }
 
-    private void setTurretAngle(double angleDeg) {
-        turretAngle = Range.clip(angleDeg, MIN_ANGLE, MAX_ANGLE);
-        double pos = CENTER_POS + turretAngle / SERVO_RANGE_DEG;
-        turret.setPosition(Range.clip(pos, 0, 1));
-    }
+    private void driveRobot() {
 
+        double y = -gamepad1.left_stick_y;
+        double x = gamepad1.left_stick_x;
+        double turn = gamepad1.right_stick_x;
+
+        double speed = DRIVE_SPEED;
+
+        // Left bumper = slow mode
+        if (gamepad1.left_bumper) {
+            speed = SLOW_SPEED;
+        }
+
+        // Mecanum calculations
+
+        double frontLeft = y + x + turn;
+        double frontRight = y - x - turn;
+
+        double backLeft = y - x + turn;
+        double backRight = y + x - turn;
+
+        // Normalize powers
+
+        double max = Math.max(
+                1.0,
+                Math.max(
+                        Math.abs(frontLeft),
+                        Math.max(
+                                Math.abs(frontRight),
+                                Math.max(
+                                        Math.abs(backLeft),
+                                        Math.abs(backRight)
+                                )
+                        )
+                )
+        );
+
+        frontLeft /= max;
+        frontRight /= max;
+        backLeft /= max;
+        backRight /= max;
+
+        // Apply power
+
+        LF.setPower(frontLeft * speed);
+        RF.setPower(frontRight * speed);
+        LB.setPower(backLeft * speed);
+        RB.setPower(backRight * speed);
+    }
     private LLResultTypes.FiducialResult getBestTag(LLResult r) {
         List<LLResultTypes.FiducialResult> f = r.getFiducialResults();
         if (f == null || f.isEmpty()) return null;
