@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.pedro;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -11,8 +13,9 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 
+@Disabled
 @TeleOp(name = "TurretTesterwAprTags")
-public class TurretTesterwAprTags {
+public class TurretTesterwAprTags extends OpMode {
     private DcMotorEx turret;
 
     private double kp = 0.0001;
@@ -84,4 +87,13 @@ public class TurretTesterwAprTags {
     }
 
 
+    @Override
+    public void init() {
+
+    }
+
+    @Override
+    public void loop() {
+
+    }
 }

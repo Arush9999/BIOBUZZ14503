@@ -5,15 +5,20 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
 import java.util.List;
 
-@Autonomous (name = "LLBlue")
+@TeleOp(name = "LLBlue")
 public class LimelightBlueTester extends LinearOpMode {
     private Limelight3A limelight;
+    private DcMotor LF,LB,RF,RB;
 
     // TODO: Measure and set these constants physically on robot
 
@@ -24,16 +29,32 @@ public class LimelightBlueTester extends LinearOpMode {
     private int lastId = -1;
 
     private final int[] blueIDs = {38,39,40,41,42,43,44,45};
-
+    public static double DRIVE_SPEED = 1.0;
+    public static double SLOW_SPEED = 0.40;
 
     @Override
     public void runOpMode() throws InterruptedException {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.pipelineSwitch(0);
         limelight.start();
+
+
+        LF = hardwareMap.get(DcMotorEx.class, "LF");
+        RF = hardwareMap.get(DcMotorEx.class, "RF");
+        LB = hardwareMap.get(DcMotorEx.class, "LB");
+        RB = hardwareMap.get(DcMotorEx.class, "RB");
+
+
+        LF.setDirection(DcMotorSimple.Direction.FORWARD);
+        LB.setDirection(DcMotorSimple.Direction.FORWARD);
+
+        RF.setDirection(DcMotorSimple.Direction.REVERSE);
+        RB.setDirection(DcMotorSimple.Direction.REVERSE);
+
         waitForStart();
 
         while (opModeIsActive()) {
+            driveRobot();
             LLResult result = limelight.getLatestResult();
 
             if (result != null && result.isValid()) {
@@ -88,7 +109,55 @@ public class LimelightBlueTester extends LinearOpMode {
     }
 
 
+    private void driveRobot() {
 
+        double y = -gamepad1.left_stick_y;
+        double x = gamepad1.left_stick_x;
+        double turn = gamepad1.right_stick_x;
+
+        double speed = DRIVE_SPEED;
+
+        // Left bumper = slow mode
+        if (gamepad1.left_bumper) {
+            speed = SLOW_SPEED;
+        }
+
+        // Mecanum calculations
+
+        double frontLeft = y + x + turn;
+        double frontRight = y - x - turn;
+
+        double backLeft = y - x + turn;
+        double backRight = y + x - turn;
+
+        // Normalize powers
+
+        double max = Math.max(
+                1.0,
+                Math.max(
+                        Math.abs(frontLeft),
+                        Math.max(
+                                Math.abs(frontRight),
+                                Math.max(
+                                        Math.abs(backLeft),
+                                        Math.abs(backRight)
+                                )
+                        )
+                )
+        );
+
+        frontLeft /= max;
+        frontRight /= max;
+        backLeft /= max;
+        backRight /= max;
+
+        // Apply power
+
+        LF.setPower(frontLeft * speed);
+        RF.setPower(frontRight * speed);
+        LB.setPower(backLeft * speed);
+        RB.setPower(backRight * speed);
+    }
     private LLResultTypes.FiducialResult getBestTag(LLResult r) {
         List<LLResultTypes.FiducialResult> f = r.getFiducialResults();
         if (f == null || f.isEmpty()) return null;
