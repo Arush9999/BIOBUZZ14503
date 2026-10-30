@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.util.Range;
  * Gamepad 2 runs the turretL servo test.
  */
 @TeleOp(name = "Code Test", group = "Testing")
-public class ALL_Test extends LinearOpMode {
+public class ALL_Test_Use_This extends LinearOpMode {
 
     // ============================================================
     // HARDWARE
