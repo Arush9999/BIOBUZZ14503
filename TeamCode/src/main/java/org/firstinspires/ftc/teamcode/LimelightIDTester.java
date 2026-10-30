@@ -40,7 +40,7 @@ public class LimelightIDTester extends LinearOpMode {
 
     // localization
     private final PoseFactory pf = PoseFactory.degrees();
-    private final Pose startPose = pf.of(72, 72, 0);
+    private final Pose startPose = pf.of(8, 72, 0);
     private static final double M_TO_IN = 39.3701;
     // Limelight field origin is field center, Pedro origin is a corner.
     private static final double FIELD_OFFSET_X = 72;
@@ -169,7 +169,7 @@ public class LimelightIDTester extends LinearOpMode {
                 telemetry.addData("MT2 tags / staleness / turn", "%d / %d ms / %.0f°/s",
                         result.getBotposeTagCount(), staleness, turnRate);
                 if (visionPose != null) {
-                    telemetry.addData("MT2 pose (Pedro in)", "x=%.1f y=%.1f", visionPose.x(), visionPose.y());
+                    telemetry.addData("MT2 pose (Pedro in)", "x=%.1f y=%.1f", visionPose.y(), visionPose.x());
                 }
                 telemetry.addData("MT2 usable", usable ? "YES" : "no: " + rejectReason);
 
