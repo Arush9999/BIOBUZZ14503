@@ -21,9 +21,11 @@ public class Code_Test extends LinearOpMode {
         Robot_Centric_Drive drive = new Robot_Centric_Drive(hardwareMap);
         Intake intake = new Intake(hardwareMap);
         Servo turretL = hardwareMap.get(Servo.class, "turretL");
+        Servo turretR = hardwareMap.get(Servo.class, "turretR");
 
         double turretPosition = TURRET_CENTER;
         turretL.setPosition(turretPosition);
+        turretR.setPosition(TURRET_CENTER * 2.0 - turretPosition);
 
         telemetry.addLine("A = increase    B = decrease");
         telemetry.addLine("X = position 0  Y = position 1");
@@ -61,10 +63,12 @@ public class Code_Test extends LinearOpMode {
             bWasPressed = gamepad1.b;
 
             turretL.setPosition(turretPosition);
+            turretR.setPosition(TURRET_CENTER * 2.0 - turretPosition);
 
             telemetry.addLine("A = increase    B = decrease");
             telemetry.addLine("X = position 0  Y = position 1");
             telemetry.addData("turretL", "%.4f", turretPosition);
+            telemetry.addData("turretR", "%.4f", TURRET_CENTER * 2.0 - turretPosition);
             telemetry.addData("step", "%.4f", TURRET_STEP);
             telemetry.update();
         }

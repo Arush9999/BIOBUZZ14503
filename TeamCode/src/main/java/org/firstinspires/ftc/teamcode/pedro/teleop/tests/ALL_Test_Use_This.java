@@ -8,11 +8,11 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 /**
- * Combined test: shooter PIDF, robot-centric drive, intake, and turretL.
+ * Combined test: shooter PIDF, robot-centric drive, intake, and both turret servos.
  * Gamepad 1 runs the PIDF tester plus drive and intake.
- * Gamepad 2 runs the turretL servo test.
+ * Gamepad 2 runs turretL, with turretR mirrored.
  */
-@TeleOp(name = "Code Test", group = "Testing")
+@TeleOp(name = "ALL_Test_Use_This", group = "Testing")
 public class ALL_Test_Use_This extends LinearOpMode {
 
     // ============================================================
@@ -24,6 +24,7 @@ public class ALL_Test_Use_This extends LinearOpMode {
     private DcMotor intake;
     private DcMotor LF, LB, RF, RB;
     private Servo turretL;
+    private Servo turretR;
 
     // ---------------- DRIVE (master) ----------------
     public static double DRIVE_POWER = 1.0;
@@ -32,7 +33,11 @@ public class ALL_Test_Use_This extends LinearOpMode {
 
     // ---------------- INTAKE (master) ----------------
     public static double INTAKE_POWER = 1.0;
+    public static double INTAKE_POWER_STEP = 0.05;
     public static double INTAKE_TRIGGER_DEADZONE = 0.1;
+
+    private boolean lastIntakePowerUp = false;
+    private boolean lastIntakePowerDown = false;
 
     // ---------------- TURRET L (master) ----------------
     public static double TURRET_CENTER = 0.5;
@@ -107,7 +112,9 @@ public class ALL_Test_Use_This extends LinearOpMode {
         intake.setPower(0);
 
         turretL = hardwareMap.get(Servo.class, "turretL");
+        turretR = hardwareMap.get(Servo.class, "turretR");
         turretL.setPosition(turretPosition);
+        turretR.setPosition(TURRET_CENTER * 2.0 - turretPosition);
 
         shooterLeft.setDirection(DcMotorEx.Direction.FORWARD);
         shooterRight.setDirection(DcMotorEx.Direction.REVERSE);
@@ -126,7 +133,8 @@ public class ALL_Test_Use_This extends LinearOpMode {
         telemetry.addLine("Bumpers   = Change I");
         telemetry.addLine("START or L3 = Shooter ON/OFF");
         telemetry.addLine("RT / LT   = Intake");
-        telemetry.addLine("Gamepad 2 turretL: A/B step, X=0, Y=1");
+        telemetry.addLine("Gamepad 2 turretL/turretR: A/B step, X=0, Y=1");
+        telemetry.addLine("Gamepad 2 D-pad up/down = Intake power");
         telemetry.update();
 
         waitForStart();
@@ -139,6 +147,7 @@ public class ALL_Test_Use_This extends LinearOpMode {
             while (opModeIsActive()) {
                 adjustPIDF();
                 driveRobot();
+                adjustIntakePower();
                 runIntake();
                 runTurretL();
 
@@ -183,6 +192,20 @@ public class ALL_Test_Use_This extends LinearOpMode {
         RB.setPower(DRIVE_POWER * (y + x - rx) / denominator);
     }
 
+    // Gamepad 2 d-pad up/down steps the intake power used by the triggers.
+    private void adjustIntakePower() {
+        if (gamepad2.dpad_up && !lastIntakePowerUp) {
+            INTAKE_POWER = Range.clip(INTAKE_POWER + INTAKE_POWER_STEP, 0, 1);
+        }
+
+        if (gamepad2.dpad_down && !lastIntakePowerDown) {
+            INTAKE_POWER = Range.clip(INTAKE_POWER - INTAKE_POWER_STEP, 0, 1);
+        }
+
+        lastIntakePowerUp = gamepad2.dpad_up;
+        lastIntakePowerDown = gamepad2.dpad_down;
+    }
+
     // Master intake: right trigger forward, left trigger reverse.
     private void runIntake() {
         double forwardTrigger = gamepad1.right_trigger;
@@ -212,6 +235,7 @@ public class ALL_Test_Use_This extends LinearOpMode {
         turretAWasPressed = gamepad2.a;
         turretBWasPressed = gamepad2.b;
         turretL.setPosition(turretPosition);
+        turretR.setPosition(TURRET_CENTER * 2.0 - turretPosition);
     }
 
     private void applyPIDF() {
@@ -309,7 +333,8 @@ public class ALL_Test_Use_This extends LinearOpMode {
         telemetry.addData("Right Velocity", "%.0f", rightVelocity);
         telemetry.addData("Left Error", "%.0f", TARGET_VELOCITY - leftVelocity);
         telemetry.addData("Right Error", "%.0f", TARGET_VELOCITY - rightVelocity);
-        telemetry.addData("Intake power", "%.2f", intake.getPower());
+        telemetry.addData("Intake set power", "%.2f", INTAKE_POWER);
+        telemetry.addData("Intake motor", "%.2f", intake.getPower());
 
         telemetry.addLine("");
         telemetry.addLine("PIDF VALUES");
@@ -326,10 +351,12 @@ public class ALL_Test_Use_This extends LinearOpMode {
         telemetry.addData("F Step", "%.7f", F_INCREMENT);
 
         telemetry.addLine("");
-        telemetry.addLine("TURRET L");
+        telemetry.addLine("TURRET");
         telemetry.addData("turretL", "%.4f", turretPosition);
+        telemetry.addData("turretR", "%.4f", TURRET_CENTER * 2.0 - turretPosition);
         telemetry.addData("step", "%.4f", TURRET_STEP);
         telemetry.addLine("Gamepad 2: A/B step, X = 0, Y = 1");
+        telemetry.addLine("Gamepad 2 D-pad up/down = Intake power");
 
         telemetry.addLine("");
         telemetry.addLine("GAMEPAD 1");
@@ -343,6 +370,7 @@ public class ALL_Test_Use_This extends LinearOpMode {
         telemetry.addLine("START or L3 = Shooters ON/OFF");
         telemetry.addLine("RT = Intake forward");
         telemetry.addLine("LT = Intake reverse");
+        telemetry.addLine("Gamepad 2 D-pad up/down = Intake power");
         telemetry.update();
     }
 }

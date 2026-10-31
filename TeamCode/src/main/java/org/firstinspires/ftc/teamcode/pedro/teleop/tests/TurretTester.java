@@ -13,7 +13,7 @@ import static com.pedropathing.ivy.Scheduler.schedule;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import com.pedropathing.math.Pose;
 
-import org.firstinspires.ftc.teamcode.pedro.Constants;
+import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 @TeleOp(name = "turret tester")
 public class TurretTester extends OpMode {
     private Follower follower;

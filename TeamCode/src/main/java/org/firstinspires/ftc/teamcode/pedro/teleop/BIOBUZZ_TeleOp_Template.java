@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
-@TeleOp(name = "BIOBUZZ TeleOp V1", group = "BIOBUZZ")
+@TeleOp(name = "BIOBUZZ TeleOp Template", group = "BIOBUZZ")
 public class BIOBUZZ_TeleOp_Template extends LinearOpMode {
 
     // ============================================================

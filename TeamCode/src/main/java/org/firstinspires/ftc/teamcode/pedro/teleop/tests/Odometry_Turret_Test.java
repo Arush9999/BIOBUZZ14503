@@ -64,10 +64,10 @@ public class Odometry_Turret_Test extends LinearOpMode {
         PinpointLocalizer pinpoint = new PinpointLocalizer(hardwareMap, Constants.localizerConfig);
 
         Servo turretL = hardwareMap.get(Servo.class, "turretL");
-        // Servo turretR = hardwareMap.get(Servo.class, "turretR");
+        Servo turretR = hardwareMap.get(Servo.class, "turretR");
 
         resetPose(pinpoint);
-        setTurret(turretL, TURRET_CENTER);
+        setTurret(turretL, turretR, TURRET_CENTER);
 
         telemetry.addLine("ODOMETRY TURRET TEST");
         telemetry.addLine("Pedro (60, 8), shooter facing the red goal.");
@@ -101,7 +101,7 @@ public class Odometry_Turret_Test extends LinearOpMode {
                 double leftPos = angleToServo(aimDegrees);
 
                 if (autoAim) {
-                    setTurret(turretL, leftPos);
+                    setTurret(turretL, turretR, leftPos);
                 }
 
                 showTelemetry(pose, turret, offsetX, offsetY, aimDegrees, leftPos);
@@ -149,10 +149,10 @@ public class Odometry_Turret_Test extends LinearOpMode {
         return Range.clip(TURRET_CENTER + normalized * halfTravel, TURRET_MIN, TURRET_MAX);
     }
 
-    private void setTurret(Servo turretL, double leftPos) {
+    private void setTurret(Servo turretL, Servo turretR, double leftPos) {
         leftPos = Range.clip(leftPos, TURRET_MIN, TURRET_MAX);
         turretL.setPosition(leftPos);
-        // turretR.setPosition(TURRET_CENTER * 2.0 - leftPos);
+        turretR.setPosition(leftPos);
     }
 
     private void showTelemetry(
@@ -185,7 +185,7 @@ public class Odometry_Turret_Test extends LinearOpMode {
         telemetry.addData("Distance", "%.1f", Math.hypot(offsetX, offsetY));
         telemetry.addData("atan2", "%.1f", aimDegrees);
         telemetry.addData("turretL", "%.3f", leftPos);
-        // telemetry.addData("turretR", "%.3f", TURRET_CENTER * 2.0 - leftPos);
+        telemetry.addData("turretR", "%.3f", leftPos);
         telemetry.addData("In range", clipped ? "CLIPPED" : "YES");
 
         telemetry.addLine("");
