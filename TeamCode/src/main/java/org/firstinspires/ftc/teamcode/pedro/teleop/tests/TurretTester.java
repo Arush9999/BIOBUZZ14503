@@ -22,7 +22,7 @@ public class TurretTester extends OpMode {
     private DcMotorEx LF, RF, LB, RB;
 
     private final PoseFactory p = PoseFactory.degrees();
-    private final Pose startPose = p.of(24, 24, 0);
+    private final Pose startPose = p.of(58, 72, 0);
     private final double GOAL_X = 72;    // goal center x
     private final double GOAL_Y = 84;   // goal center y
 
