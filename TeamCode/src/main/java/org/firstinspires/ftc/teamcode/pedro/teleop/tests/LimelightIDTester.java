@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
@@ -56,6 +57,10 @@ public class LimelightIDTester extends LinearOpMode {
     private int relocalizeCount = 0;
     private String rejectReason = "";
 
+    //turret constants
+    private Servo tL;
+    private Servo tR;
+
 
     @Override
     public void runOpMode() throws InterruptedException {
@@ -78,6 +83,10 @@ public class LimelightIDTester extends LinearOpMode {
 
         RF.setDirection(DcMotorSimple.Direction.REVERSE);
         RB.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        tL = hardwareMap.get(Servo.class, "turretL");
+        tR = hardwareMap.get(Servo.class, "turretR");
+        tR.setDirection(Servo.Direction.REVERSE);
 
         waitForStart();
         lastHeadingDeg = Math.toDegrees(follower.pose().heading());
