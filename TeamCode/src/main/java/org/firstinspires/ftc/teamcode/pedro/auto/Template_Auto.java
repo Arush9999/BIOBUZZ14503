@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
-@Autonomous
+@Autonomous(name = "Template_Auto")
 public class Template_Auto extends OpMode {
 
     private Follower follower;

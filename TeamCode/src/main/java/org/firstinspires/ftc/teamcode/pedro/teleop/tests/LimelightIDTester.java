@@ -17,7 +17,7 @@ import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
 import java.util.List;
 
-@TeleOp(name = "LLTester")
+@TeleOp(name = "LimelightIDTester")
 public class LimelightIDTester extends LinearOpMode {
     private Limelight3A limelight;
     private Follower follower;
@@ -186,7 +186,7 @@ public class LimelightIDTester extends LinearOpMode {
 
             Pose current = follower.pose();
             telemetry.addData("Pedro pose", "x=%.1f y=%.1f h=%.1f°",
-                    current.x(), current.y(), Math.toDegrees(current.heading()));
+                    current.y(), current.x(), Math.toDegrees(current.heading()));
             telemetry.addData("Relocalized (A to snap)", relocalizeCount);
             telemetry.update();
         }

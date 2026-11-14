@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
-import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Robot_Centric_Drive;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Drivetrain;
 
 /**
  * Odometry turret test for the BIOBUZZ field.
@@ -22,15 +22,19 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Robot_Centric_Drive;
  * picture, about (72, 48).
  *
  * Auto-aim is atan2 of the offset from the turret to that point, minus heading.
- * Angle 0 keeps turretL at 0.5, which is shooter-forward.
+ * Angle 0 keeps both Axon servos at 0.5, which is shooter-forward.
+ * Each servo's 80T gear drives a shared 20T pinion. A 37T gear on that
+ * same axle drives the 145T turret gear. Two meshes cancel, so the turret
+ * turns with the servo, 148/145 turret degrees per servo degree.
+ * Axon position 0..1 is 180° of servo travel, centered at 0.5.
  */
-@TeleOp(name = "Odometry Turret Test", group = "BIOBUZZ")
+@TeleOp(name = "Odometry_Turret_Test", group = "BIOBUZZ")
 public class Odometry_Turret_Test extends LinearOpMode {
 
     // Pedro inches and degrees.
     public static double START_X = 60.0;
     public static double START_Y = 8.0;
-    public static double START_HEADING_DEGREES = 135.0;
+    public static double START_HEADING_DEGREES = 95;
 
     // Red goal opening. Measured on the field picture, in Pedro inches.
     public static double GOAL_X = 72.0;
@@ -41,16 +45,19 @@ public class Odometry_Turret_Test extends LinearOpMode {
     public static double TURRET_OFFSET_X = 0.0;
     public static double TURRET_OFFSET_Y = 0.0;
 
-    // The gear reverses the servo. -1 turns the turret the other way.
-    public static double TURRET_SIGN = -1.0;
-    // Servo : turret. One servo degree moves the turret 1.224 degrees.
-    public static double GEAR_RATIO = 1.224;
-    // Servo travel of 0..1 covers this many servo degrees, centered on shooter forward.
-    public static double TURRET_RANGE_DEGREES = 90.0;
+    // Servo 80T drives the 20T pinion. The 37T shares that axle and drives the 145T turret.
+    public static double SERVO_GEAR_TEETH = 80.0;
+    public static double PINION_TEETH = 20.0;
+    public static double COMPOUND_TEETH = 37.0;
+    public static double TURRET_GEAR_TEETH = 145.0;
+
+    // Last year's Axon map. Position 0..1 is this many servo degrees, centered at 0.5.
+    // Positive aim lowers the position.
+    public static double AXON_RANGE_DEGREES = 180.0;
 
     public static double TURRET_CENTER = 0.5;
-    public static double TURRET_MIN = 0.25;
-    public static double TURRET_MAX = 0.75;
+    public static double TURRET_MIN = 0.0;
+    public static double TURRET_MAX = 1.0;
 
     private final PoseFactory degrees = PoseFactory.degrees();
 
@@ -60,7 +67,7 @@ public class Odometry_Turret_Test extends LinearOpMode {
 
     @Override
     public void runOpMode() throws InterruptedException {
-        Robot_Centric_Drive drive = new Robot_Centric_Drive(hardwareMap);
+        Drivetrain drive = new Drivetrain(hardwareMap);
         PinpointLocalizer pinpoint = new PinpointLocalizer(hardwareMap, Constants.localizerConfig);
 
         Servo turretL = hardwareMap.get(Servo.class, "turretL");
@@ -138,15 +145,19 @@ public class Odometry_Turret_Test extends LinearOpMode {
         return new double[] {turretX, turretY};
     }
 
+    // Turret degrees produced by one servo degree. (80/20) * (37/145) = 148/145.
+    private double turretDegreesPerServoDegree() {
+        return (SERVO_GEAR_TEETH / PINION_TEETH) * (COMPOUND_TEETH / TURRET_GEAR_TEETH);
+    }
+
+    private double servoDegreesForTurret(double turretDegrees) {
+        return turretDegrees / turretDegreesPerServoDegree();
+    }
+
     private double angleToServo(double aimDegrees) {
-        double servoDegrees = aimDegrees / GEAR_RATIO;
-        double normalized = Range.clip(
-                TURRET_SIGN * servoDegrees / TURRET_RANGE_DEGREES,
-                -1.0,
-                1.0
-        );
-        double halfTravel = TURRET_CENTER - TURRET_MIN;
-        return Range.clip(TURRET_CENTER + normalized * halfTravel, TURRET_MIN, TURRET_MAX);
+        double servoDegrees = servoDegreesForTurret(aimDegrees);
+        double servoPos = TURRET_CENTER - servoDegrees / AXON_RANGE_DEGREES;
+        return Range.clip(servoPos, TURRET_MIN, TURRET_MAX);
     }
 
     private void setTurret(Servo turretL, Servo turretR, double leftPos) {
@@ -163,7 +174,8 @@ public class Odometry_Turret_Test extends LinearOpMode {
             double aimDegrees,
             double leftPos
     ) {
-        boolean clipped = Math.abs(aimDegrees / GEAR_RATIO) > TURRET_RANGE_DEGREES;
+        double servoDegrees = servoDegreesForTurret(aimDegrees);
+        boolean clipped = Math.abs(servoDegrees) > AXON_RANGE_DEGREES / 2.0;
 
         telemetry.addLine("===== ODOMETRY TURRET =====");
         telemetry.addData("Auto aim", autoAim ? "ON" : "OFF");
@@ -184,6 +196,7 @@ public class Odometry_Turret_Test extends LinearOpMode {
         telemetry.addData("Offset Y", "%.2f", offsetY);
         telemetry.addData("Distance", "%.1f", Math.hypot(offsetX, offsetY));
         telemetry.addData("atan2", "%.1f", aimDegrees);
+        telemetry.addData("Servo deg", "%.1f", servoDegrees);
         telemetry.addData("turretL", "%.3f", leftPos);
         telemetry.addData("turretR", "%.3f", leftPos);
         telemetry.addData("In range", clipped ? "CLIPPED" : "YES");

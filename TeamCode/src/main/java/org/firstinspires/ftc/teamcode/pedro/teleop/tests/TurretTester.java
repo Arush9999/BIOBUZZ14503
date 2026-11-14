@@ -14,7 +14,7 @@ import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import com.pedropathing.math.Pose;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
-@TeleOp(name = "turret tester")
+@TeleOp(name = "TurretTester")
 public class TurretTester extends OpMode {
     private Follower follower;
     private Servo tL;
@@ -157,4 +157,3 @@ public class TurretTester extends OpMode {
         return a;
     }
 }
-

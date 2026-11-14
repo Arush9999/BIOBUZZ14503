@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.util.Range;
 /**
  * Manual test: move turretL with A / B.
  */
-@TeleOp(name = "TurretL Servo Test", group = "BIOBUZZ")
+@TeleOp(name = "TurretL_Servo_Test", group = "BIOBUZZ")
 public class TurretL_Servo_Test extends LinearOpMode {
 
     public static double TURRET_CENTER = 0.5;

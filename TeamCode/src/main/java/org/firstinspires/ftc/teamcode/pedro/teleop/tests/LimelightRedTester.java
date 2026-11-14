@@ -10,7 +10,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
 import java.util.List;
 
-@Autonomous (name = "LLRed")
+@Autonomous(name = "LimelightRedTester")
 public class LimelightRedTester extends LinearOpMode {
     private Limelight3A limelight;
 

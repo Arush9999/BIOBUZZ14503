@@ -1,19 +1,25 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop.methods;
 
+import static com.pedropathing.ivy.commands.Commands.infinite;
+import static com.pedropathing.ivy.commands.Commands.instant;
+
+import com.pedropathing.ivy.Command;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
-public class Robot_Centric_Drive {
+import java.util.function.DoubleSupplier;
+
+public class Drivetrain {
 
     private final DcMotor LF;
     private final DcMotor LB;
     private final DcMotor RF;
     private final DcMotor RB;
 
-    public Robot_Centric_Drive(HardwareMap hardwareMap) {
+    public Drivetrain(HardwareMap hardwareMap) {
         LF = hardwareMap.dcMotor.get("LF");
         LB = hardwareMap.dcMotor.get("LB");
         RF = hardwareMap.dcMotor.get("RF");
@@ -21,6 +27,12 @@ public class Robot_Centric_Drive {
 
         RF.setDirection(DcMotorSimple.Direction.REVERSE);
         RB.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        for (DcMotor motor : new DcMotor[]{LF, LB, RF, RB}) {
+            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setPower(0);
+        }
     }
 
     public void drive(double forward, double strafe, double turn) {
@@ -66,5 +78,19 @@ public class Robot_Centric_Drive {
 
     public DcMotor getRB() {
         return RB;
+    }
+
+    // ---------------- Ivy helper commands ----------------
+
+    public Command teleOpCommand(DoubleSupplier forward, DoubleSupplier strafe, DoubleSupplier turn) {
+        return infinite(() -> drive(
+                forward.getAsDouble(),
+                strafe.getAsDouble(),
+                turn.getAsDouble()
+        ));
+    }
+
+    public Command stopCommand() {
+        return instant(this::stop);
     }
 }
