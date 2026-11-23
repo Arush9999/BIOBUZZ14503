@@ -25,13 +25,13 @@ public class Transfer {
 
     /**
      * Transfer reverses whenever intake is active.
-     * Bumper override runs transfer forward (wired to RB in teleop).
+     * Bumper override runs transfer forward/shoot (wired to RB in teleop).
      */
     public void run(boolean intakeActive, boolean forwardBumper) {
         if (forwardBumper) {
-            setPower(Constants.TRANSFER_POWER);
+            setPower(Constants.TRANSFER_SHOOT_POWER);
         } else if (intakeActive) {
-            setPower(-Constants.TRANSFER_POWER);
+            setPower(-Constants.TRANSFER_REVERSE_POWER);
         } else {
             stop();
         }
@@ -68,11 +68,11 @@ public class Transfer {
     }
 
     public Command forwardCommand() {
-        return instant(() -> setPower(Constants.TRANSFER_POWER));
+        return instant(() -> setPower(Constants.TRANSFER_SHOOT_POWER));
     }
 
     public Command reverseCommand() {
-        return instant(() -> setPower(-Constants.TRANSFER_POWER));
+        return instant(() -> setPower(-Constants.TRANSFER_REVERSE_POWER));
     }
 
     public Command stopCommand() {

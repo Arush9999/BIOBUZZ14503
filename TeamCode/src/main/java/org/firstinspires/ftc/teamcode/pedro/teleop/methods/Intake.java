@@ -17,7 +17,7 @@ public class Intake {
     private final DcMotor intake;
 
     public Intake(HardwareMap hardwareMap) {
-        intake = hardwareMap.dcMotor.get("intake");
+        intake = hardwareMap.dcMotor.get("Intake");
         intake.setDirection(DcMotorSimple.Direction.FORWARD);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
     }
