@@ -10,20 +10,19 @@ import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
-/** Paths from Red_Left_Scrimmage_1_Tip_Insurance.pp.json
- * Face 180 for paths 1–4; park (path 5) turns to 0. */
-public class Paths_Red_Left_Scrimmage_1_Tip_Insurance {
+/** Paths from Red_Left_M1_1_Tip_Insurance.pp.json */
+public class Paths_Red_Left_M1_1_Tip_Insurance {
 
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
     private final Pose start = poseFactory.of(53.5, 6.5, 180);
     private final Pose point1 = poseFactory.of(53.5, 12, 180);
     private final Pose point2 = poseFactory.of(24, 6.5, 180);
-    private final Pose point3 = poseFactory.of(10, 6.5, 180);
+    private final Pose point3 = poseFactory.of(12, 6.5, 180);
     private final Pose point4 = poseFactory.of(53.5, 12, 180);
-    private final Pose point5 = poseFactory.of(12, 96, 0);
-    private final Pose point2Control = poseFactory.of(24, 12, 0);
-    private final Pose point4Control = poseFactory.of(10, 12, 0);
+    private final Pose point5 = poseFactory.of(12, 96, 180);
+    private final Pose point2Control = poseFactory.of(53.5, 6.5, 0);
+    private final Pose point4Control = poseFactory.of(12, 12, 0);
     private final Pose point5Control = poseFactory.of(12, 12, 0);
 
     public Pose startPose() {
@@ -40,7 +39,7 @@ public class Paths_Red_Left_Scrimmage_1_Tip_Insurance {
     }
 
     public Path path3() {
-        return line(point2, point3).constant(point3);
+        return line(point2, point3).tangent();
     }
 
     public Path path4() {
@@ -48,7 +47,7 @@ public class Paths_Red_Left_Scrimmage_1_Tip_Insurance {
     }
 
     public Path path5() {
-        return curve(point4, point5Control, point5).linear(point4, point5);
+        return curve(point4, point5Control, point5).constant(point5);
     }
 
     public Path route() {

@@ -12,49 +12,73 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 /**
- * Flywheel velocity control with:
- * - software PIDF (P/I/F on raw velocity; D on low-pass-filtered dV/dt)
- * - derivative-on-measurement dampening
- * - battery voltage compensation on F and P (tune at NOMINAL volts)
+ * Bang-bang flywheel speed loop with hysteresis, plus TeleOp helpers
+ * (ready check, feed burst offset, shot tracking, battery for feed volts).
+ *
+ * Each update:
+ *   velocity &lt; target - HYSTERESIS  -> ON_POWER
+ *   velocity &gt; target + HYSTERESIS  -> coast (0)
+ *   inside the band                 -> hold last state (stops chatter)
  */
 public class Shooter {
 
-    private final DcMotorEx shooter;
-    private final HardwareMap hardwareMap;
-    private boolean running = false;
-    private double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
-    private double filteredVoltage = Constants.SHOOTER_NOMINAL_VOLTAGE;
-    private double compensatedF = Constants.SHOOTER_F;
-    private double compensatedP = Constants.SHOOTER_P;
+    public static final int MAX_SHOTS = 8;
+    private static final double FALLBACK_VOLTAGE = 12.5;
+    private static final int WINDOW_SIZE = 64;
 
-    private double lastRawVelocity = 0.0;
-    private double filteredDerivative = 0.0;
-    private double integral = 0.0;
+    private final DcMotorEx shooter;
+    private final List<VoltageSensor> voltageSensors = new ArrayList<>();
+
+    private boolean running = false;
+    private boolean feeding = false;
+    private boolean bangOn = false;
+    private double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
+
+    private double velocity = 0.0;
+    private double smoothVelocity = 0.0;
+    private boolean smoothSeeded = false;
+    private double batteryVoltage;
     private double lastPower = 0.0;
+    private double sentPower = Double.NaN;
+    private double readyTime = 0.0;
+    private double loopSec = 0.0;
     private long lastNs = 0L;
-    private boolean derivativeSeeded = false;
+    private long lastVoltageNs = 0L;
+    private String mode = "OFF";
+
+    // Shot tracking
+    private final long[] windowNs = new long[WINDOW_SIZE];
+    private final double[] windowVel = new double[WINDOW_SIZE];
+    private int windowHead = 0;
+    private int windowCount = 0;
+    private boolean inDip = false;
+    private double dipMin = 0.0;
+    private boolean hasFed = false;
+    private long feedEndNs = 0L;
+    private final double[] shotSpeed = new double[MAX_SHOTS];
+    private final double[] shotRecoverySec = new double[MAX_SHOTS];
+    private int shotCount = 0;
+    private long lastShotNs = 0L;
+    private boolean awaitingRecovery = false;
 
     public Shooter(HardwareMap hardwareMap) {
-        this.hardwareMap = hardwareMap;
         shooter = hardwareMap.get(DcMotorEx.class, "shooter");
         shooter.setDirection(DcMotorEx.Direction.REVERSE);
-        // Software PID writes motor power; encoder velocity is still available.
         shooter.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        filteredVoltage = readBatteryVoltage();
-        applyPIDF();
-        stop();
-    }
+        for (VoltageSensor sensor : hardwareMap.voltageSensor) {
+            voltageSensors.add(sensor);
+        }
+        double volts = readBatteryVoltage();
+        batteryVoltage = Double.isNaN(volts) ? FALLBACK_VOLTAGE : volts;
 
-    /** Refresh voltage-compensated P/F used by the software loop. */
-    public void applyPIDF() {
-        updateVoltage();
-        double voltage = Math.max(filteredVoltage, Constants.SHOOTER_MIN_VOLTAGE);
-        double scale = Constants.SHOOTER_NOMINAL_VOLTAGE / voltage;
-        compensatedF = Constants.SHOOTER_F * scale;
-        compensatedP = Constants.SHOOTER_P * scale;
+        sendPower(0.0);
     }
 
     public void setTargetVelocity(double velocity) {
@@ -66,35 +90,16 @@ public class Shooter {
         return targetVelocity;
     }
 
-    public double getBatteryVoltage() {
-        return filteredVoltage;
-    }
-
-    public double getCompensatedF() {
-        return compensatedF;
-    }
-
-    public double getCompensatedP() {
-        return compensatedP;
-    }
-
-    /** Low-pass filtered velocity derivative (ticks/s²) used by D. */
-    public double getFilteredDerivative() {
-        return filteredDerivative;
-    }
-
-    public double getRawVelocity() {
-        return shooter.getVelocity();
-    }
-
-    public double getLastPower() {
-        return lastPower;
-    }
-
     public void setRunning(boolean running) {
         this.running = running;
-        if (!running) {
-            stop();
+        if (running) {
+            bangOn = true; // spin up immediately when enabled
+        } else {
+            resetState();
+            bangOn = false;
+            lastPower = 0.0;
+            mode = "OFF";
+            sendPower(0.0);
         }
     }
 
@@ -106,87 +111,300 @@ public class Shooter {
         return running;
     }
 
-    public void update() {
-        if (running && targetVelocity > 0) {
-            applyPIDF();
-            lastPower = computePidfPower();
-            shooter.setPower(lastPower);
-        } else {
-            stopMotor();
-        }
+    public void stop() {
+        setRunning(false);
     }
 
-    public void stop() {
-        running = false;
-        stopMotor();
+    /**
+     * Transfer is pushing balls in. Raises target by BURST_OFFSET and watches
+     * for each ball's speed drop.
+     */
+    public void setFeeding(boolean feeding) {
+        if (feeding == this.feeding) {
+            return;
+        }
+        long now = System.nanoTime();
+        if (feeding) {
+            if (!hasFed || (now - feedEndNs) / 1.0e9 > Constants.SHOOTER_BURST_GAP_SEC) {
+                clearShots();
+            }
+            hasFed = true;
+        } else {
+            feedEndNs = now;
+        }
+        this.feeding = feeding;
+    }
+
+    public boolean isFeeding() {
+        return feeding;
+    }
+
+    public void update() {
+        long now = System.nanoTime();
+        double dt = (lastNs == 0L) ? 0.02 : Range.clip((now - lastNs) / 1.0e9, 0.002, 0.1);
+        lastNs = now;
+        loopSec = dt;
+
+        velocity = shooter.getVelocity();
+        if (!smoothSeeded) {
+            smoothVelocity = velocity;
+            smoothSeeded = true;
+        } else {
+            double alpha = dt / (Math.max(Constants.SHOOTER_SPEED_SMOOTH_SEC, 0.0) + dt);
+            smoothVelocity += alpha * (velocity - smoothVelocity);
+        }
+        updateVoltage(now);
+
+        if (!running || targetVelocity <= 0) {
+            mode = "OFF";
+            bangOn = false;
+            lastPower = 0.0;
+            readyTime = 0.0;
+            sendPower(0.0);
+            return;
+        }
+
+        double target = targetVelocity
+                + (feeding ? Math.max(0.0, Constants.SHOOTER_BURST_OFFSET) : 0.0);
+        double hyst = Math.max(0.0, Constants.SHOOTER_HYSTERESIS);
+
+        if (velocity < target - hyst) {
+            bangOn = true;
+        } else if (velocity > target + hyst) {
+            bangOn = false;
+        }
+
+        mode = bangOn ? "FULL" : "COAST";
+        lastPower = bangOn ? Range.clip(Constants.SHOOTER_ON_POWER, 0.0, 1.0) : 0.0;
+        sendPower(lastPower);
+
+        boolean inTolerance =
+                Math.abs(target - smoothVelocity) <= Constants.SHOOTER_READY_TOL * target;
+        readyTime = inTolerance ? readyTime + dt : 0.0;
+
+        trackShots(now);
+    }
+
+    /** Smoothed speed within READY_TOL of target for READY_SEC. */
+    public boolean atSpeed() {
+        return running && readyTime >= Constants.SHOOTER_READY_SEC;
+    }
+
+    public double getVelocity() {
+        return velocity;
+    }
+
+    /** Alias for {@link #getVelocity()}. */
+    public double getRawVelocity() {
+        return velocity;
+    }
+
+    public double getSmoothedVelocity() {
+        return smoothVelocity;
+    }
+
+    public double getLastPower() {
+        return lastPower;
+    }
+
+    public boolean isBangOn() {
+        return bangOn;
+    }
+
+    public double getBatteryVoltage() {
+        return batteryVoltage;
+    }
+
+    public double getLoopMs() {
+        return loopSec * 1000.0;
+    }
+
+    /** OFF, FULL, or COAST. */
+    public String getMode() {
+        return mode;
     }
 
     public DcMotorEx getShooter() {
         return shooter;
     }
 
-    private void stopMotor() {
-        integral = 0.0;
-        lastNs = 0L;
-        lastPower = 0.0;
-        filteredDerivative = 0.0;
-        derivativeSeeded = false;
-        shooter.setPower(0.0);
+    public int getShotCount() {
+        return shotCount;
     }
 
-    /**
-     * P/I/F use raw velocity. Only the D term is low-pass filtered
-     * (filtered dV/dt) so dampening does not amplify encoder noise.
-     */
-    private double computePidfPower() {
-        long now = System.nanoTime();
-        double dt = (lastNs == 0L) ? 0.02 : (now - lastNs) / 1.0e9;
-        lastNs = now;
-        dt = Range.clip(dt, 0.005, 0.05);
+    public double getShotSpeed(int index) {
+        return shotSpeed[index];
+    }
 
-        double rawVelocity = shooter.getVelocity();
-        double error = targetVelocity - rawVelocity;
-        integral += error * dt;
-        integral = Range.clip(integral, -Constants.SHOOTER_I_MAX, Constants.SHOOTER_I_MAX);
+    public double getShotRecoverySec(int index) {
+        return shotRecoverySec[index];
+    }
 
-        double rawDerivative = 0.0;
-        if (!derivativeSeeded) {
-            lastRawVelocity = rawVelocity;
-            filteredDerivative = 0.0;
-            derivativeSeeded = true;
-        } else {
-            rawDerivative = (rawVelocity - lastRawVelocity) / dt;
-            double alpha = Range.clip(Constants.SHOOTER_D_FILTER, 0.01, 1.0);
-            filteredDerivative += alpha * (rawDerivative - filteredDerivative);
-            lastRawVelocity = rawVelocity;
+    public double getShotSpreadPercent() {
+        if (shotCount < 2 || targetVelocity <= 0) {
+            return 0.0;
         }
-
-        double pTerm = compensatedP * error;
-        double iTerm = Constants.SHOOTER_I * integral;
-        double dTerm = -Constants.SHOOTER_D * filteredDerivative; // dampening on filtered dV/dt
-        double fTerm = compensatedF * targetVelocity;
-
-        return Range.clip(
-                (pTerm + iTerm + dTerm + fTerm) / Constants.SHOOTER_PID_SCALE,
-                -1.0,
-                1.0);
+        double min = shotSpeed[0];
+        double max = shotSpeed[0];
+        for (int i = 1; i < shotCount; i++) {
+            min = Math.min(min, shotSpeed[i]);
+            max = Math.max(max, shotSpeed[i]);
+        }
+        return (max - min) / targetVelocity * 100.0;
     }
 
-    private void updateVoltage() {
+    public double getShotDropPercent() {
+        if (shotCount < 2 || targetVelocity <= 0) {
+            return 0.0;
+        }
+        return (shotSpeed[0] - shotSpeed[shotCount - 1]) / targetVelocity * 100.0;
+    }
+
+    public String shotSpeedsText() {
+        if (shotCount == 0) {
+            return "none yet";
+        }
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < shotCount; i++) {
+            if (i > 0) {
+                text.append(" / ");
+            }
+            text.append(String.format(Locale.US, "%.0f", shotSpeed[i]));
+        }
+        return text.toString();
+    }
+
+    public String shotRecoveryText() {
+        if (shotCount == 0) {
+            return "none yet";
+        }
+        StringBuilder text = new StringBuilder();
+        for (int i = 0; i < shotCount; i++) {
+            if (i > 0) {
+                text.append(" / ");
+            }
+            text.append(Double.isNaN(shotRecoverySec[i])
+                    ? "--"
+                    : String.format(Locale.US, "%.2f", shotRecoverySec[i]));
+        }
+        return text.toString();
+    }
+
+    public void clearShots() {
+        shotCount = 0;
+        awaitingRecovery = false;
+    }
+
+    private void resetState() {
+        readyTime = 0.0;
+        inDip = false;
+        windowCount = 0;
+        windowHead = 0;
+        awaitingRecovery = false;
+    }
+
+    private void sendPower(double power) {
+        if (power != sentPower) {
+            shooter.setPower(power);
+            sentPower = power;
+        }
+    }
+
+    private void updateVoltage(long now) {
+        double since = (now - lastVoltageNs) / 1.0e9;
+        if (lastVoltageNs != 0L && since < Constants.SHOOTER_VOLTAGE_READ_SEC) {
+            return;
+        }
         double raw = readBatteryVoltage();
-        double alpha = Constants.SHOOTER_VOLTAGE_FILTER;
-        filteredVoltage += alpha * (raw - filteredVoltage);
+        if (!Double.isNaN(raw)) {
+            if (lastVoltageNs == 0L) {
+                batteryVoltage = raw;
+            } else {
+                double alpha = since / (Math.max(Constants.SHOOTER_VOLTAGE_TAU_SEC, 0.0) + since);
+                batteryVoltage += alpha * (raw - batteryVoltage);
+            }
+        }
+        lastVoltageNs = now;
     }
 
     private double readBatteryVoltage() {
         double min = Double.POSITIVE_INFINITY;
-        for (VoltageSensor sensor : hardwareMap.voltageSensor) {
+        for (VoltageSensor sensor : voltageSensors) {
             double voltage = sensor.getVoltage();
             if (voltage > 0) {
                 min = Math.min(min, voltage);
             }
         }
-        return Double.isFinite(min) ? min : Constants.SHOOTER_NOMINAL_VOLTAGE;
+        return Double.isInfinite(min) ? Double.NaN : min;
+    }
+
+    private void trackShots(long now) {
+        if (awaitingRecovery && atSpeed()) {
+            shotRecoverySec[shotCount - 1] = (now - lastShotNs) / 1.0e9;
+            awaitingRecovery = false;
+        }
+
+        boolean watching = feeding
+                || (hasFed && (now - feedEndNs) / 1.0e9 < Constants.SHOOTER_SHOT_WATCH_AFTER_FEED_SEC);
+        if (!watching) {
+            windowCount = 0;
+            windowHead = 0;
+            inDip = false;
+            return;
+        }
+
+        double speed = smoothVelocity;
+        if (inDip) {
+            dipMin = Math.min(dipMin, speed);
+            if (speed >= dipMin + Constants.SHOOTER_SHOT_REARM * targetVelocity) {
+                inDip = false;
+                windowCount = 0;
+                windowHead = 0;
+                pushSample(now, speed);
+            }
+            return;
+        }
+
+        pushSample(now, speed);
+        double before = windowMax(now);
+        if (before - speed >= Constants.SHOOTER_SHOT_DROP * targetVelocity) {
+            recordShot(before, now);
+            inDip = true;
+            dipMin = speed;
+        }
+    }
+
+    private void recordShot(double speedBefore, long now) {
+        if (shotCount >= MAX_SHOTS) {
+            return;
+        }
+        shotSpeed[shotCount] = speedBefore;
+        shotRecoverySec[shotCount] = Double.NaN;
+        shotCount++;
+        lastShotNs = now;
+        awaitingRecovery = true;
+    }
+
+    private void pushSample(long now, double value) {
+        windowNs[windowHead] = now;
+        windowVel[windowHead] = value;
+        windowHead = (windowHead + 1) % WINDOW_SIZE;
+        if (windowCount < WINDOW_SIZE) {
+            windowCount++;
+        }
+    }
+
+    private double windowMax(long now) {
+        long oldest = now - (long) (Constants.SHOOTER_SHOT_WINDOW_SEC * 1.0e9);
+        double max = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < windowCount; i++) {
+            int index = (windowHead - 1 - i + WINDOW_SIZE) % WINDOW_SIZE;
+            if (windowNs[index] < oldest) {
+                break;
+            }
+            max = Math.max(max, windowVel[index]);
+        }
+        return max;
     }
 
     // ---------------- Ivy helper commands ----------------

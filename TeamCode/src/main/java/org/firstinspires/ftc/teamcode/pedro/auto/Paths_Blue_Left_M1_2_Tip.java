@@ -10,24 +10,25 @@ import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
-/** Paths from Red_Left_Scrimmage_2_Tip.pp.json */
-public class Paths_Red_Left_Scrimmage_2_Tip {
+/** Blue mirror of Paths_Red_Left_M1_2_Tip.
+ * x' = 144 - x, y' = 144 - y, heading' = (heading + 180) % 360. */
+public class Paths_Blue_Left_M1_2_Tip {
 
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
-    private final Pose start = poseFactory.of(53.5, 6.5, 180);
-    private final Pose point1 = poseFactory.of(24, 6.5, 180);
-    private final Pose point2 = poseFactory.of(10, 6.5, 180);
-    private final Pose point3 = poseFactory.of(24, 32, 90);
-    private final Pose point4 = poseFactory.of(44, 130, 0);
-    private final Pose point5 = poseFactory.of(44, 120, 90);
-    private final Pose point6 = poseFactory.of(44, 128, 90);
-    private final Pose point7 = poseFactory.of(44, 120, 90);
-    private final Pose point8 = poseFactory.of(44, 130, 0);
-    private final Pose point9 = poseFactory.of(12, 96, 0);
-    private final Pose point3Control = poseFactory.of(24, 12, 0);
-    private final Pose point4Control = poseFactory.of(24, 130, 0);
-    private final Pose point9Control = poseFactory.of(12, 130, 0);
+    private final Pose start = poseFactory.of(90.5, 137.5, 0);
+    private final Pose point1 = poseFactory.of(118, 137.5, 0);
+    private final Pose point2 = poseFactory.of(132, 137.5, 0);
+    private final Pose point3 = poseFactory.of(120, 112, 270);
+    private final Pose point4 = poseFactory.of(96, 14, 180);
+    private final Pose point5 = poseFactory.of(96, 24, 270);
+    private final Pose point6 = poseFactory.of(96, 16, 270);
+    private final Pose point7 = poseFactory.of(96, 24, 270);
+    private final Pose point8 = poseFactory.of(96, 14, 180);
+    private final Pose point9 = poseFactory.of(132, 48, 180);
+    private final Pose point3Control = poseFactory.of(120, 132, 180);
+    private final Pose point4Control = poseFactory.of(120, 14, 180);
+    private final Pose point9Control = poseFactory.of(132, 14, 180);
 
     public Pose startPose() {
         return start;

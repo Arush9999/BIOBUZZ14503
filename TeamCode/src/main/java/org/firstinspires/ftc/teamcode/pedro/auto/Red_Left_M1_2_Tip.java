@@ -6,10 +6,6 @@ import static com.pedropathing.ivy.commands.Commands.waitMs;
 import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.INTAKE_POWER;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_F;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_I;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_P;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_TARGET_VELOCITY;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.TRANSFER_REVERSE_POWER;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.TRANSFER_SHOOT_POWER;
@@ -27,8 +23,8 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Shooter;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Transfer;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 
-@Autonomous(name = "Red_Left_Scrimmage_2_Tip", group = "Auto")
-public class Red_Left_Scrimmage_2_Tip extends OpMode {
+@Autonomous(name = "Red_Left_M1_2_Tip", group = "Auto")
+public class Red_Left_M1_2_Tip extends OpMode {
 
     private static final double PATH_SPEED = 1;
     private static final double SLOW_SPEED = 0.25;
@@ -40,7 +36,7 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
     private static final double TURRET_PATH4_POS = 0.24;
     private static final double TURRET_PATH8_POS = 0.24;
 
-    private final Paths_Red_Left_Scrimmage_2_Tip paths = new Paths_Red_Left_Scrimmage_2_Tip();
+    private final Paths_Red_Left_M1_2_Tip paths = new Paths_Red_Left_M1_2_Tip();
     private Follower follower;
     private Intake intake;
     private Transfer transfer;
@@ -53,12 +49,6 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
     @Override
     public void init() {
         Scheduler.reset();
-
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_P = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_I = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_F = 14.5;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D_FILTER = 0.18;
         org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_TARGET_VELOCITY = 1825;
 
         follower = Constants.create(hardwareMap);
@@ -67,14 +57,11 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
         transfer = new Transfer(hardwareMap);
         shooter = new Shooter(hardwareMap);
         shooter.setTargetVelocity(SHOOTER_TARGET_VELOCITY);
-        shooter.applyPIDF();
         turret = new Turret(hardwareMap);
         turret.setPosition(TURRET_PRELOAD_POS);
         flowerFlap = new FlowerFlap(hardwareMap);
 
-        telemetry.addLine("Red_Left_Scrimmage_2_Tip");
-        telemetry.addData("Shooter PIDF", "%.1f / %.1f / %.1f / %.1f",
-                SHOOTER_P, SHOOTER_I, SHOOTER_D, SHOOTER_F);
+        telemetry.addLine("Red_Left_M1_2_Tip");
         telemetry.addData("Target vel", "%.0f", SHOOTER_TARGET_VELOCITY);
         telemetry.update();
     }
@@ -125,10 +112,8 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
         telemetry.addData("Shooter", shooter.isRunning() ? "ON" : "OFF");
         telemetry.addData("targetVelocity", shooter.getTargetVelocity());
         telemetry.addData("actualVelocity", shooter.getShooter().getVelocity());
-        telemetry.addData("P/I/D/F", "%.1f / %.1f / %.1f / %.1f",
-                SHOOTER_P, SHOOTER_I, SHOOTER_D, SHOOTER_F);
-        telemetry.addData("compensatedF", "%.2f", shooter.getCompensatedF());
-        telemetry.addData("batteryV", "%.2f", shooter.getBatteryVoltage());
+        telemetry.addData("Bang", shooter.isBangOn() ? "FULL" : "COAST");
+        telemetry.addData("Power", "%.2f", shooter.getLastPower());
         telemetry.addData("Flower flap", flowerFlap.getPosition());
         telemetry.update();
     }
