@@ -18,11 +18,11 @@ public class Paths_Red_Left_M1_1_Tip_Insurance {
     private final Pose start = poseFactory.of(53.5, 6.5, 180);
     private final Pose point1 = poseFactory.of(53.5, 12, 180);
     private final Pose point2 = poseFactory.of(24, 6.5, 180);
-    private final Pose point3 = poseFactory.of(12, 6.5, 180);
+    private final Pose point3 = poseFactory.of(9.5, 6.5, 180);
     private final Pose point4 = poseFactory.of(53.5, 12, 180);
     private final Pose point5 = poseFactory.of(12, 96, 180);
     private final Pose point2Control = poseFactory.of(53.5, 6.5, 0);
-    private final Pose point4Control = poseFactory.of(12, 12, 0);
+    private final Pose point4Control = poseFactory.of(10, 12, 0);
     private final Pose point5Control = poseFactory.of(12, 12, 0);
 
     public Pose startPose() {
@@ -47,7 +47,7 @@ public class Paths_Red_Left_M1_1_Tip_Insurance {
     }
 
     public Path path5() {
-        return curve(point4, point5Control, point5).constant(point5);
+        return curve(point4, point5Control, point5).tangent();
     }
 
     public Path route() {

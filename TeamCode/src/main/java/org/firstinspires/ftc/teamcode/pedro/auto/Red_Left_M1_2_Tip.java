@@ -13,6 +13,7 @@ import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.TR
 import com.pedropathing.follower.Follower;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.ivy.Scheduler;
+import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -29,12 +30,16 @@ public class Red_Left_M1_2_Tip extends OpMode {
     private static final double PATH_SPEED = 1;
     private static final double SLOW_SPEED = 0.25;
     private static final double PICKUP_SPEED = 0.5;
-    private static final long PRELOAD_SPINUP_MS = 6000;
-    private static final long PRELOAD_SHOT_MS = 7500;
-    private static final long FLAP_DEPLOY_MS = 250;
-    private static final double TURRET_PRELOAD_POS = 0.21;
-    private static final double TURRET_PATH4_POS = 0.24;
-    private static final double TURRET_PATH8_POS = 0.24;
+    private static final long PRELOAD_SPINUP_MS = 5000;
+    private static final long PRELOAD_SHOT_MS = 1500;
+    private static final long SHOT_MS = 1500;
+    private static final long PRE_SHOT_WAIT_MS = 1000;
+    private static final long INTAKE_WAIT_MS = 500;
+    private static final long FLAP_WAIT_MS = 500;
+    private static final long INTAKE_PATH_TIMEOUT_MS = 1000;
+    private static final double TURRET_PRELOAD_POS = 0.225;
+    private static final double TURRET_PATH5_POS = 0.25;
+    private static final double TURRET_PATH9_POS = 0.25;
 
     private final Paths_Red_Left_M1_2_Tip paths = new Paths_Red_Left_M1_2_Tip();
     private Follower follower;
@@ -70,29 +75,31 @@ public class Red_Left_M1_2_Tip extends OpMode {
     public void start() {
         schedule(sequential(
                 shooter.spinUpCommand(SHOOTER_TARGET_VELOCITY),
+                follow(follower, paths.path1()),
                 preloadShot(),
 
-                follow(follower, paths.path1()),
-                follow(follower, paths.path2().with(Constants.foresightConfig.maxPathSpeed.at(SLOW_SPEED))),
-                waitMs(500),
+                follow(follower, paths.path2().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                follow(follower, paths.path3().with(Constants.foresightConfig.maxPathSpeed.at(SLOW_SPEED))),
+                waitMs(INTAKE_WAIT_MS),
 
-                follow(follower, paths.path3().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
                 follow(follower, paths.path4().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                instant(() -> turret.setPosition(TURRET_PATH4_POS)),
-                transferOnWait(1500), // shot after path 4
+                follow(follower, paths.path5().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                shotAfterPath(TURRET_PATH5_POS),
 
                 flowerFlap.downCommand(),
-                waitMs(FLAP_DEPLOY_MS),
-                follow(follower, paths.path5().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                follow(follower, paths.path6().with(Constants.foresightConfig.maxPathSpeed.at(PICKUP_SPEED))),
-                waitMs(1000),
-                follow(follower, paths.path7().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                waitMs(FLAP_WAIT_MS),
+                follow(follower, paths.path6().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                followWithTimeout(
+                        paths.path7().with(Constants.foresightConfig.maxPathSpeed.at(PICKUP_SPEED)),
+                        INTAKE_PATH_TIMEOUT_MS),
+                waitMs(INTAKE_WAIT_MS),
                 follow(follower, paths.path8().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                instant(() -> turret.setPosition(TURRET_PATH8_POS)),
-                transferOnWait(1500), // shot after path 8
+                follow(follower, paths.path9().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                shotAfterPath(TURRET_PATH9_POS),
 
                 flowerFlap.upCommand(),
-                follow(follower, paths.path9().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED)))
+                waitMs(FLAP_WAIT_MS),
+                follow(follower, paths.path10().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED)))
         ));
     }
 
@@ -125,6 +132,26 @@ public class Red_Left_M1_2_Tip extends OpMode {
         shooter.stop();
     }
 
+    /**
+     * Follows until parametric end or timeout. Stops the follower at the current pose on timeout
+     * so the next path can start from where we are (Ivy race alone does not stop Pedro).
+     */
+    private Command followWithTimeout(Path path, long timeoutMs) {
+        final long[] startNs = new long[1];
+        return Command.build()
+                .setStart(() -> {
+                    startNs[0] = System.nanoTime();
+                    follower.follow(path);
+                })
+                .setDone(() -> follower.atParametricEnd()
+                        || (System.nanoTime() - startNs[0]) >= timeoutMs * 1_000_000L)
+                .setEnd(end -> {
+                    if (!follower.atParametricEnd()) {
+                        follower.hold(follower.pose());
+                    }
+                });
+    }
+
     private Command preloadShot() {
         return sequential(
                 instant(() -> {
@@ -138,8 +165,16 @@ public class Red_Left_M1_2_Tip extends OpMode {
                 waitMs(PRELOAD_SPINUP_MS),
                 instant(() -> intakePower = INTAKE_POWER),
                 instant(this::transferForward),
-                waitMs(PRELOAD_SHOT_MS - PRELOAD_SPINUP_MS),
+                waitMs(PRELOAD_SHOT_MS),
                 instant(this::transferReverse)
+        );
+    }
+
+    private Command shotAfterPath(double turretPos) {
+        return sequential(
+                waitMs(PRE_SHOT_WAIT_MS),
+                instant(() -> turret.setPosition(turretPos)),
+                transferOnWait(SHOT_MS)
         );
     }
 

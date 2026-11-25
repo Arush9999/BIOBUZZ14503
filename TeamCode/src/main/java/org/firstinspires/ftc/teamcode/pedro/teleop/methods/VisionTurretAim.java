@@ -22,6 +22,30 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
  * (when a Follower is provided), otherwise it holds the last position.
  *
  * Call vision.update() BEFORE calling update() here each loop.
+ package org.firstinspires.ftc.teamcode.pedro.teleop.methods;
+
+ import com.acmerobotics.dashboard.config.Config;
+ import com.pedropathing.follower.Follower;
+ import com.qualcomm.robotcore.util.Range;
+
+ import org.firstinspires.ftc.robotcore.external.Telemetry;
+ import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
+
+ /**
+ * Closes the loop between LimelightVision and Turret.
+ *
+ * Every NEW Limelight frame, the horizontal error (tx) of the alliance hive AprilTags
+ * is converted to a servo-position correction and applied to the turret.
+ *
+ * Sign convention (from Turret): position HIGH->LOW = CW, LOW->HIGH = CCW.
+ * Limelight tx > 0 means the target is to the RIGHT of the crosshair, so the turret
+ * must rotate CW => servo position decreases. Flip SIGN if your camera is mounted
+ * mirrored / the turret runs away from the target.
+ *
+ * If the hive is not seen for LOST_TIMEOUT_MS, it falls back to odometry aim
+ * (when a Follower is provided), otherwise it holds the last position.
+ *
+ * Call vision.update() BEFORE calling update() here each loop.
  */
 @Config
 public class VisionTurretAim {
@@ -30,15 +54,19 @@ public class VisionTurretAim {
     /** +1 or -1. Flip if turret turns away from the hive. */
     public static double SIGN = -1.0;
     /** Fraction of the measured error corrected per new frame (0..1). */
-    public static double KP = 0.6;
+    public static double KP = 0.5;
     /** Aim offset in degrees (shift where the shot "centers" in the camera view). */
     public static double TX_OFFSET_DEG = 0.0;
     /** Do not move when |error| is below this (deg). */
-    public static double DEADBAND_DEG = 0.5;
-    /** Max servo-position change per loop. */
-    public static double MAX_STEP_POS = 0.02;
-    /** How long after losing the hive before falling back to odometry. */
-    public static long LOST_TIMEOUT_MS = 300;
+    public static double DEADBAND_DEG = 1.0;
+    /** Max servo-position change per correction. */
+    public static double MAX_STEP_POS = 0.015;
+    /** Minimum wait after each move before trusting the next frame. */
+    public static long SETTLE_MS = 40;
+    /** Extra wait per unit of servo travel (ms per 1.0 position) so big moves settle longer. */
+    public static double SETTLE_MS_PER_POS = 1500;
+    /** How long after losing the hive before falling back to odometry (rides through flicker). */
+    public static long LOST_TIMEOUT_MS = 250;
     /** Minimum visible tags in the chosen cell to trust it. */
     public static int MIN_TAGS = 1;
 
@@ -50,6 +78,8 @@ public class VisionTurretAim {
     private int lastCell = -1;
     private int lastTagCount = 0;
     private long lastSeenMs = 0;
+    private long lastMoveMs = 0;
+    private long settleNeededMs = 0;
 
     public VisionTurretAim(LimelightVision vision, Turret turret) {
         this.vision = vision;
@@ -75,7 +105,7 @@ public class VisionTurretAim {
             locked = true;
 
             // Only act on fresh data so stale frames are not applied repeatedly.
-            if (vision.hasNewFrame()) {
+            if (vision.hasNewFrame() && now - lastMoveMs >= settleNeededMs) {
                 double error = avgTx - TX_OFFSET_DEG;
                 lastErrorDeg = error;
 
@@ -83,6 +113,9 @@ public class VisionTurretAim {
                     double deltaPos = SIGN * -error * KP * Constants.TURRET_DEGREE_TO_SERVO;
                     deltaPos = Range.clip(deltaPos, -MAX_STEP_POS, MAX_STEP_POS);
                     turret.setPosition(turret.getPosition() + deltaPos);
+                    lastMoveMs = now;
+                    settleNeededMs = SETTLE_MS
+                            + (long) (Math.abs(deltaPos) * SETTLE_MS_PER_POS);
                 }
             }
             return;

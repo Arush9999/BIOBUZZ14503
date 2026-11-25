@@ -29,9 +29,12 @@ public class Red_Left_M1_1_Tip_Insurance extends OpMode {
     private static final double PATH_SPEED = 1;
     private static final double SLOW_SPEED = 0.25;
     private static final long PRELOAD_SPINUP_MS = 5000;
-    private static final long PRELOAD_SHOT_MS = 8000;
-    private static final double TURRET_PRELOAD_POS = 0.21;
-    private static final double TURRET_PATH4_POS = 0.21;
+    private static final long PRELOAD_SHOT_MS = 1500;
+    private static final long SHOT_MS = 1500;
+    private static final long PRE_SHOT_WAIT_MS = 1000;
+    private static final long INTAKE_WAIT_MS = 500;
+    private static final double TURRET_PRELOAD_POS = 0.225;
+    private static final double TURRET_PATH4_POS = 0.225;
 
     private final Paths_Red_Left_M1_1_Tip_Insurance paths =
             new Paths_Red_Left_M1_1_Tip_Insurance();
@@ -73,11 +76,10 @@ public class Red_Left_M1_1_Tip_Insurance extends OpMode {
 
                 follow(follower, paths.path2().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
                 follow(follower, paths.path3().with(Constants.foresightConfig.maxPathSpeed.at(SLOW_SPEED))),
-                waitMs(1000),
+                waitMs(INTAKE_WAIT_MS),
 
                 follow(follower, paths.path4().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                instant(() -> turret.setPosition(TURRET_PATH4_POS)),
-                transferOnWait(4000),
+                shotAfterPath(TURRET_PATH4_POS),
 
                 follow(follower, paths.path5().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED)))
         ));
@@ -125,8 +127,16 @@ public class Red_Left_M1_1_Tip_Insurance extends OpMode {
                 waitMs(PRELOAD_SPINUP_MS),
                 instant(() -> intakePower = INTAKE_POWER),
                 instant(this::transferForward),
-                waitMs(PRELOAD_SHOT_MS - PRELOAD_SPINUP_MS),
+                waitMs(PRELOAD_SHOT_MS),
                 instant(this::transferReverse)
+        );
+    }
+
+    private Command shotAfterPath(double turretPos) {
+        return sequential(
+                waitMs(PRE_SHOT_WAIT_MS),
+                instant(() -> turret.setPosition(turretPos)),
+                transferOnWait(SHOT_MS)
         );
     }
 
