@@ -49,8 +49,6 @@ public class Intake {
         return intake;
     }
 
-    // ---------------- Ivy helper commands ----------------
-
     public Command teleOpCommand(DoubleSupplier forwardTrigger, DoubleSupplier reverseTrigger) {
         return infinite(() -> run(forwardTrigger.getAsDouble(), reverseTrigger.getAsDouble()));
     }

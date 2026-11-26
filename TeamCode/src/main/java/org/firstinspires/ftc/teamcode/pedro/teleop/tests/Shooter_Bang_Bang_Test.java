@@ -16,20 +16,10 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Transfer;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 
 /**
- * Bang-bang (on/off) flywheel speed loop with hysteresis.
+ * Standalone bang-bang tuner. Dashboard / Dpad fields start from {@link Constants};
+ * copy final values back into Constants after tuning.
  *
- * Each loop:
- *   velocity &lt; target - HYSTERESIS  -> full ON power
- *   velocity &gt; target + HYSTERESIS  -> coast (0)
- *   inside the band                 -> hold last state (stops chatter)
- *
- * PS5 controls (Options + Cross to link):
- *   Options / L3 = toggle shooter
- *   Dpad U/D     = target ± TARGET_STEP
- *   Dpad L/R     = hysteresis ± HYSTERESIS_STEP
- *   R2 / L2      = intake in / out
- *   R1           = transfer forward (feed)
- *   Turret held at 0.5 (forward)
+ * PS5: Options/L3 toggle · Dpad U/D target · L/R hysteresis · R2/L2 intake · R1 feed
  */
 @Config
 @TeleOp(name = "Shooter_BangBang", group = "Testing")
@@ -40,7 +30,6 @@ public class Shooter_Bang_Bang_Test extends OpMode {
     public static double ON_POWER = Constants.SHOOTER_ON_POWER;
     public static double TARGET_STEP = 25;
     public static double HYSTERESIS_STEP = 5;
-    public static double TURRET_HOLD = 0.5;
 
     private DcMotorEx shooter;
     private Intake intake;
@@ -49,7 +38,7 @@ public class Shooter_Bang_Bang_Test extends OpMode {
     private boolean running = false;
     private boolean lastToggle;
     private boolean lastUp, lastDown, lastLeft, lastRight;
-    private boolean bangOn = false; // latched state inside the hysteresis band
+    private boolean bangOn = false;
     private double lastPower = 0.0;
 
     @Override
@@ -69,13 +58,12 @@ public class Shooter_Bang_Bang_Test extends OpMode {
         intake = new Intake(hardwareMap);
         transfer = new Transfer(hardwareMap);
         turret = new Turret(hardwareMap);
-        turret.setPosition(TURRET_HOLD);
 
         telemetry.addLine("SHOOTER BANG-BANG (PS5)");
         telemetry.addLine("Options / L3 = toggle shooter");
         telemetry.addLine("Dpad U/D = target | L/R = hysteresis");
         telemetry.addLine("R2/L2 = intake | R1 = transfer feed");
-        telemetry.addLine("Turret held at 0.5");
+        telemetry.addLine("Turret held at center");
         telemetry.update();
     }
 
@@ -95,7 +83,7 @@ public class Shooter_Bang_Bang_Test extends OpMode {
 
         intake.run(rt, lt);
         transfer.run(rt, lt, rb);
-        turret.setPosition(TURRET_HOLD);
+        turret.setPosition(Constants.TURRET_CENTER);
 
         double velocity = shooter.getVelocity();
         double target = Math.max(0, TARGET_VELOCITY);
@@ -107,14 +95,11 @@ public class Shooter_Bang_Bang_Test extends OpMode {
             lastPower = 0.0;
             shooter.setPower(0.0);
         } else {
-            // Classic bang-bang with hysteresis deadband.
             if (velocity < target - hyst) {
                 bangOn = true;
             } else if (velocity > target + hyst) {
                 bangOn = false;
             }
-            // else: keep bangOn (inside band)
-
             lastPower = bangOn ? Range.clip(ON_POWER, 0.0, 1.0) : 0.0;
             shooter.setPower(lastPower);
         }
@@ -153,7 +138,7 @@ public class Shooter_Bang_Bang_Test extends OpMode {
         if (toggle && !lastToggle) {
             running = !running;
             if (running) {
-                bangOn = true; // spin up immediately when enabled
+                bangOn = true;
             }
         }
         lastToggle = toggle;

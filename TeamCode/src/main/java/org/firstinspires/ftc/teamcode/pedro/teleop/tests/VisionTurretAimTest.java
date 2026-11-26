@@ -9,6 +9,7 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.LimelightVision;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.VisionTurretAim;
 
+/** DPAD L/R alliance · A toggle aim · X center · right stick nudge when aim off. */
 @TeleOp(name = "Vision Turret Aim", group = "tests")
 public class VisionTurretAimTest extends OpMode {
 
@@ -26,7 +27,7 @@ public class VisionTurretAimTest extends OpMode {
                 telemetry, FtcDashboard.getInstance().getTelemetry());
 
         vision = new LimelightVision(hardwareMap, redAlliance);
-        turret = new Turret(hardwareMap);   // starts at TURRET_CENTER
+        turret = new Turret(hardwareMap);
         aim = new VisionTurretAim(vision, turret);
 
         telemetry.addLine("Vision Turret Aim ready");
@@ -40,7 +41,6 @@ public class VisionTurretAimTest extends OpMode {
 
     @Override
     public void loop() {
-        // Alliance select.
         if (gamepad1.dpad_left && !redAlliance) {
             redAlliance = true;
             vision.setAlliance(true);
@@ -50,17 +50,19 @@ public class VisionTurretAimTest extends OpMode {
             vision.setAlliance(false);
         }
 
-        // A toggles auto-aim, X recenters.
-        if (gamepad1.a && !lastA) aimEnabled = !aimEnabled;
+        if (gamepad1.a && !lastA) {
+            aimEnabled = !aimEnabled;
+        }
         lastA = gamepad1.a;
-        if (gamepad1.x) turret.center();
+        if (gamepad1.x) {
+            turret.center();
+        }
 
-        vision.update();   // must come before aim.update()
+        vision.update();
 
         if (aimEnabled) {
-            aim.update();  // vision-only; pass a Follower here for odometry fallback
+            aim.update();
         } else {
-            // Manual nudge with right stick when auto-aim is off.
             turret.nudge(-gamepad1.right_stick_x * 0.01);
         }
 
@@ -68,7 +70,6 @@ public class VisionTurretAimTest extends OpMode {
         telemetry.addData("Auto Aim", aimEnabled ? "ON" : "OFF");
         aim.addTelemetry(telemetry);
         vision.addTelemetry(telemetry);
-
         telemetry.addLine("DPAD L/R: alliance | A: toggle aim | X: center");
         telemetry.update();
     }

@@ -13,16 +13,10 @@ import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
 /**
- * Dual positional (non-continuous) turret servos.
- * Both servos receive the same position and spin the same direction.
+ * Dual positional (non-continuous) turret servos — both get the same position.
+ * Number-line motion only (never wraps 0↔1): low→high = CCW, high→low = CW.
  *
- * Position number-line motion (never wraps through the rear 0↔1 cut):
- *   low → high = CCW
- *   high → low = CW
- *
- * Aim math (field → robot-relative → servo):
- *   atan2(goal - predictedPose) → subtract heading → normalize
- *   → turret offset → negate → position offset → set_pos → slew on 0..1
+ * Aim: atan2(goal − predictedPose) − heading → normalize → offsets → servo pos → slew.
  */
 public class Turret {
 
@@ -32,7 +26,7 @@ public class Turret {
     private double position = Constants.TURRET_CENTER;
     private double aimDegrees = 0.0;
     private boolean aimLimited = false;
-    /** Manual trim (servo units) added on top of auto-aim; does not disable aim. */
+    /** Manual trim (servo units) on top of auto-aim / forward hold. */
     private double trimPos = 0.0;
 
     public Turret(HardwareMap hardwareMap) {
@@ -50,7 +44,7 @@ public class Turret {
 
     public void setAngle(double angleDeg) {
         aimDegrees = Range.clip(angleDeg, Constants.TURRET_MIN_ANGLE, Constants.TURRET_MAX_ANGLE);
-        setPosition(setPos(aimDegrees));
+        setPosition(angleToServo(aimDegrees));
     }
 
     public void center() {
@@ -59,13 +53,12 @@ public class Turret {
         setAngle(0.0);
     }
 
-    /** Face robot-forward at servo 0.5, plus current trim. */
+    /** Face robot-forward ({@link Constants#TURRET_CENTER}) plus current trim. */
     public void holdForward() {
-        setPosition(0.5 + trimPos);
+        setPosition(Constants.TURRET_CENTER + trimPos);
     }
 
     public void nudge(double delta) {
-        // delta > 0 → higher pos → CCW; delta < 0 → lower pos → CW
         setPosition(position + delta);
     }
 
@@ -96,20 +89,12 @@ public class Turret {
         return aimDegrees;
     }
 
-    /**
-     * Map a robot-relative turret angle (deg) onto the positional servo range.
-     * Matches reference set_pos(): both servos use this same value.
-     */
+    /** Map robot-relative turret angle (deg) onto the positional servo range. */
     public static double angleToPosition(double angleDeg) {
-        return setPos(normalizeAngle(angleDeg));
+        return angleToServo(normalizeAngle(angleDeg));
     }
 
-    /** Always-on odometry aim at the configured field goal. */
     public void update(Follower follower) {
-        aimAt(follower, Constants.GOAL_X, Constants.GOAL_Y);
-    }
-
-    public void aimAtGoal(Follower follower) {
         aimAt(follower, Constants.GOAL_X, Constants.GOAL_Y);
     }
 
@@ -118,7 +103,6 @@ public class Turret {
         double headingRad = pose.heading();
         double thetaRobot = Math.toDegrees(headingRad);
 
-        // predictedX/Y = current pose (add velocity lead later if needed).
         double predictedX = pose.x()
                 + Constants.TURRET_OFFSET_X * Math.cos(headingRad)
                 - Constants.TURRET_OFFSET_Y * Math.sin(headingRad);
@@ -129,26 +113,16 @@ public class Turret {
         double dx = goalX - predictedX;
         double dy = goalY - predictedY;
 
-        double angleToNetField = Math.toDegrees(Math.atan2(dy, dx));
-        double turretTarget = angleToNetField - thetaRobot;
-
+        double turretTarget = Math.toDegrees(Math.atan2(dy, dx)) - thetaRobot;
         turretTarget = normalizeAngle(turretTarget);
         turretTarget += Constants.TURRET_OFFSET;
         turretTarget = normalizeAngle(turretTarget);
-        turretTarget = turretTarget * -1.0;
-        turretTarget = turretTarget + Constants.TURRET_POSITION_OFFSET;
+        turretTarget = -turretTarget + Constants.TURRET_POSITION_OFFSET;
 
-        double targetPos = setPos(normalizeAngle(turretTarget)) + trimPos;
+        double targetPos = angleToServo(normalizeAngle(turretTarget)) + trimPos;
         aimLimited = targetPos <= Constants.TURRET_MIN || targetPos >= Constants.TURRET_MAX;
         slewPositionTo(targetPos);
     }
-
-    /** Kept for existing call sites. */
-    public void aimAtHive(Follower follower) {
-        update(follower);
-    }
-
-    // ---------------- Ivy helper commands ----------------
 
     public Command centerCommand() {
         return instant(this::center);
@@ -166,10 +140,7 @@ public class Turret {
         return infinite(() -> update(follower));
     }
 
-    /**
-     * Slew along the servo number line only.
-     * Increasing pos = CCW, decreasing pos = CW — never wraps 0↔1 through the rear.
-     */
+    /** Slew along the servo number line only — never wraps through the rear. */
     private void slewPositionTo(double targetPos) {
         targetPos = Range.clip(targetPos, Constants.TURRET_MIN, Constants.TURRET_MAX);
         double delta = targetPos - position;
@@ -177,11 +148,8 @@ public class Turret {
         setPosition(position + delta);
     }
 
-    /**
-     * Reference set_pos: servo pos falls as angle rises.
-     * Clamped only to the 0..1 servo command range.
-     */
-    private static double setPos(double angle) {
+    /** Servo pos falls as angle rises; clamped to the 0..1 command range. */
+    private static double angleToServo(double angle) {
         double raw = Constants.TURRET_POS_AT_MIN_ANGLE
                 - (angle - Constants.TURRET_MIN_ANGLE) * Constants.TURRET_DEGREE_TO_SERVO;
         return Math.min(

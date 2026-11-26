@@ -1,77 +1,55 @@
 package org.firstinspires.ftc.teamcode.pedro.teleop.methods;
 
+import static com.pedropathing.ivy.commands.Commands.infinite;
+
 import com.acmerobotics.dashboard.config.Config;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ivy.Command;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
 /**
- * Closes the loop between LimelightVision and Turret.
+ * Closes the loop between {@link LimelightVision} and {@link Turret}.
  *
- * Every NEW Limelight frame, the horizontal error (tx) of the alliance hive AprilTags
- * is converted to a servo-position correction and applied to the turret.
+ * On each new Limelight frame, hive AprilTag tx is converted to a servo-position
+ * correction. tx &gt; 0 = target right of crosshair → CW → lower servo position.
+ * Flip {@link #SIGN} if the camera is mirrored or the turret runs away.
  *
- * Sign convention (from Turret): position HIGH->LOW = CW, LOW->HIGH = CCW.
- * Limelight tx > 0 means the target is to the RIGHT of the crosshair, so the turret
- * must rotate CW => servo position decreases. Flip SIGN if your camera is mounted
- * mirrored / the turret runs away from the target.
+ * If the hive is lost longer than {@link #LOST_TIMEOUT_MS}, falls back to odometry
+ * aim when a {@link Follower} is set; otherwise holds last position.
  *
- * If the hive is not seen for LOST_TIMEOUT_MS, it falls back to odometry aim
- * (when a Follower is provided), otherwise it holds the last position.
- *
- * Call vision.update() BEFORE calling update() here each loop.
- package org.firstinspires.ftc.teamcode.pedro.teleop.methods;
-
- import com.acmerobotics.dashboard.config.Config;
- import com.pedropathing.follower.Follower;
- import com.qualcomm.robotcore.util.Range;
-
- import org.firstinspires.ftc.robotcore.external.Telemetry;
- import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
-
- /**
- * Closes the loop between LimelightVision and Turret.
- *
- * Every NEW Limelight frame, the horizontal error (tx) of the alliance hive AprilTags
- * is converted to a servo-position correction and applied to the turret.
- *
- * Sign convention (from Turret): position HIGH->LOW = CW, LOW->HIGH = CCW.
- * Limelight tx > 0 means the target is to the RIGHT of the crosshair, so the turret
- * must rotate CW => servo position decreases. Flip SIGN if your camera is mounted
- * mirrored / the turret runs away from the target.
- *
- * If the hive is not seen for LOST_TIMEOUT_MS, it falls back to odometry aim
- * (when a Follower is provided), otherwise it holds the last position.
- *
- * Call vision.update() BEFORE calling update() here each loop.
+ * Schedule {@link #senseCommand()} then {@link #adjustCommand()} (or call
+ * {@code vision.update()} before {@link #update()}). Gate motion with {@link #setActive}.
  */
 @Config
 public class VisionTurretAim {
 
-    // ---------------- TUNABLES (FTC Dashboard) ----------------
     /** +1 or -1. Flip if turret turns away from the hive. */
     public static double SIGN = -1.0;
-    /** Fraction of the measured error corrected per new frame (0..1). */
+    /** Fraction of measured error corrected per new frame (0..1). */
     public static double KP = 0.5;
-    /** Aim offset in degrees (shift where the shot "centers" in the camera view). */
+    /** Aim offset in degrees (shifts where the shot centers in the camera). */
     public static double TX_OFFSET_DEG = 0.0;
-    /** Do not move when |error| is below this (deg). */
+    /** Ignore |error| below this (deg). */
     public static double DEADBAND_DEG = 1.0;
     /** Max servo-position change per correction. */
     public static double MAX_STEP_POS = 0.015;
     /** Minimum wait after each move before trusting the next frame. */
     public static long SETTLE_MS = 40;
-    /** Extra wait per unit of servo travel (ms per 1.0 position) so big moves settle longer. */
+    /** Extra settle time (ms) per 1.0 of servo travel. */
     public static double SETTLE_MS_PER_POS = 1500;
-    /** How long after losing the hive before falling back to odometry (rides through flicker). */
+    /** Wait after losing the hive before odometry fallback. */
     public static long LOST_TIMEOUT_MS = 250;
     /** Minimum visible tags in the chosen cell to trust it. */
     public static int MIN_TAGS = 1;
 
     private final LimelightVision vision;
     private final Turret turret;
+
+    private Follower follower;
+    private boolean active = false;
 
     private boolean locked = false;
     private double lastErrorDeg = Double.NaN;
@@ -86,7 +64,35 @@ public class VisionTurretAim {
         this.turret = turret;
     }
 
-    /** Vision-only aiming: holds position when the hive is not visible. */
+    /** Optional odometry fallback when the hive is lost. */
+    public void setFollower(Follower follower) {
+        this.follower = follower;
+    }
+
+    /** When false, sense still runs but the turret is not moved. */
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    /** Read Limelight each loop (safe to run while inactive). */
+    public Command senseCommand() {
+        return infinite(vision::update);
+    }
+
+    /** Apply aim corrections only while {@link #isActive()}. */
+    public Command adjustCommand() {
+        return infinite(() -> {
+            if (active) {
+                update(follower);
+            }
+        });
+    }
+
+    /** Vision-only aiming; holds position when the hive is not visible. */
     public void update() {
         update(null);
     }
@@ -95,7 +101,6 @@ public class VisionTurretAim {
     public void update(Follower follower) {
         long now = System.currentTimeMillis();
 
-        // Pick the hive cell (group of 4 tags) with the most visible tags.
         int cell = bestCell();
         double avgTx = cell >= 0 ? averageTx(cell) : Double.NaN;
 
@@ -104,7 +109,6 @@ public class VisionTurretAim {
             lastCell = cell;
             locked = true;
 
-            // Only act on fresh data so stale frames are not applied repeatedly.
             if (vision.hasNewFrame() && now - lastMoveMs >= settleNeededMs) {
                 double error = avgTx - TX_OFFSET_DEG;
                 lastErrorDeg = error;
@@ -121,7 +125,6 @@ public class VisionTurretAim {
             return;
         }
 
-        // Hive not visible.
         lastErrorDeg = Double.NaN;
         lastCell = -1;
         lastTagCount = 0;
@@ -129,14 +132,12 @@ public class VisionTurretAim {
         if (now - lastSeenMs > LOST_TIMEOUT_MS) {
             locked = false;
             if (follower != null) {
-                turret.aimAtGoal(follower);
+                turret.update(follower);
             }
         }
     }
 
-    // ---------------- helpers ----------------
-
-    /** Cell 0 = first tag group, cell 1 = second, for the active alliance. -1 if none. */
+    /** Cell 0 / 1 for the active alliance; -1 if none meet {@link #MIN_TAGS}. */
     private int bestCell() {
         int c0 = vision.getVisibleTagCount(0);
         int c1 = vision.getVisibleTagCount(1);
@@ -146,7 +147,6 @@ public class VisionTurretAim {
         return (vision.hasValidFrame() && count >= MIN_TAGS) ? best : -1;
     }
 
-    /** Average tx of the visible tags in a cell (readTx filters out the other alliance). */
     private double averageTx(int cell) {
         int base = (vision.isRedAlliance() ? 30 : 38) + cell * 4;
         double sum = 0;
@@ -160,8 +160,6 @@ public class VisionTurretAim {
         }
         return n == 0 ? Double.NaN : sum / n;
     }
-
-    // ---------------- status ----------------
 
     public boolean isLocked() {
         return locked;
@@ -178,6 +176,7 @@ public class VisionTurretAim {
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addLine("----- VISION AIM -----");
+        telemetry.addData("Aim Active", active);
         telemetry.addData("Hive Locked", locked);
         telemetry.addData("Centered", isCentered());
         telemetry.addData("Using Cell", lastCell);

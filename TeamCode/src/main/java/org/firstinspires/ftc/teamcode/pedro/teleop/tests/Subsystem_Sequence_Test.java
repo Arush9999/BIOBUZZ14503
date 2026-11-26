@@ -20,6 +20,7 @@ public class Subsystem_Sequence_Test extends LinearOpMode {
 
     private static final long FLAP_HOLD_MS = 1000;
     private static final long TURRET_HOLD_MS = 1000;
+    private static final long SHOOTER_RUN_MS = 6000;
 
     private Intake intake;
     private Transfer transfer;
@@ -38,14 +39,13 @@ public class Subsystem_Sequence_Test extends LinearOpMode {
         intake.stop();
         transfer.stop();
         flowerFlap.up();
-        turret.setPosition(0.5);
         shooter.stop();
 
         telemetry.addLine("SUBSYSTEM SEQUENCE TEST");
         telemetry.addLine("1) Intake fwd 1s, back 1s");
         telemetry.addLine("2) Transfer fwd 1s, back 2s");
         telemetry.addLine("3) Flap up, then down");
-        telemetry.addLine("4) Turret 0.5 → 0.2 → 0.8 → 0.5");
+        telemetry.addLine("4) Turret center → min → max → center");
         telemetry.addLine("5) Shooter on 6s");
         telemetry.addLine("Press START to begin.");
         telemetry.update();
@@ -103,7 +103,12 @@ public class Subsystem_Sequence_Test extends LinearOpMode {
     }
 
     private void runTurret() {
-        double[] positions = {0.5, 0.2, 0.8, 0.5};
+        double[] positions = {
+                Constants.TURRET_CENTER,
+                Constants.TURRET_MIN,
+                Constants.TURRET_MAX,
+                Constants.TURRET_CENTER
+        };
         for (double pos : positions) {
             showStep(String.format("Turret → %.1f", pos));
             turret.setPosition(pos);
@@ -113,14 +118,13 @@ public class Subsystem_Sequence_Test extends LinearOpMode {
 
     private void runShooter() {
         showStep("Shooter ON 6s");
-        shooter.setTargetVelocity(Constants.SHOOTER_TARGET_VELOCITY);
         shooter.setRunning(true);
 
         ElapsedTime timer = new ElapsedTime();
-        while (opModeIsActive() && timer.milliseconds() < 6000) {
+        while (opModeIsActive() && timer.milliseconds() < SHOOTER_RUN_MS) {
             shooter.update();
             telemetry.addData("shooter vel", "%.0f / %.0f",
-                    shooter.getRawVelocity(), shooter.getTargetVelocity());
+                    shooter.getVelocity(), shooter.getTargetVelocity());
             telemetry.addData("shooter power", "%.3f", shooter.getLastPower());
             telemetry.update();
             idle();

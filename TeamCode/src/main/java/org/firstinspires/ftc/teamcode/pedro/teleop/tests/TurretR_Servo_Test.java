@@ -6,11 +6,9 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 
-/**
- * Manual test for positional (non-continuous) turretR.
- * Steps by degrees within TURRET_MIN_ANGLE..TURRET_MAX_ANGLE.
- */
+/** Manual positional test for turretR. Steps by degrees within the configured angle range. */
 @TeleOp(name = "TurretR_Servo_Test", group = "BIOBUZZ")
 public class TurretR_Servo_Test extends LinearOpMode {
 
@@ -21,7 +19,8 @@ public class TurretR_Servo_Test extends LinearOpMode {
         Servo turretR = hardwareMap.get(Servo.class, "turretR");
 
         double angleDeg = 0.0;
-        double position = angleToPos(angleDeg);
+        double position = Range.clip(
+                Turret.angleToPosition(angleDeg), Constants.TURRET_MIN, Constants.TURRET_MAX);
         turretR.setPosition(position);
 
         telemetry.addLine("TurretR positional (NOT continuous) — PS5");
@@ -64,7 +63,8 @@ public class TurretR_Servo_Test extends LinearOpMode {
             triangleWasPressed = gamepad1.triangle;
             shareWasPressed = gamepad1.share;
 
-            position = Range.clip(angleToPos(angleDeg), Constants.TURRET_MIN, Constants.TURRET_MAX);
+            position = Range.clip(
+                    Turret.angleToPosition(angleDeg), Constants.TURRET_MIN, Constants.TURRET_MAX);
             turretR.setPosition(position);
 
             telemetry.addLine("TurretR positional (NOT continuous) — PS5");
@@ -75,14 +75,5 @@ public class TurretR_Servo_Test extends LinearOpMode {
                     Constants.TURRET_MIN, Constants.TURRET_MAX);
             telemetry.update();
         }
-    }
-
-    /** Same mapping as Turret.set_pos — positional travel only. */
-    private static double angleToPos(double angle) {
-        double raw = Constants.TURRET_POS_AT_MIN_ANGLE
-                - (angle - Constants.TURRET_MIN_ANGLE) * Constants.TURRET_DEGREE_TO_SERVO;
-        return Math.min(
-                Constants.TURRET_POS_AT_MIN_ANGLE,
-                Math.max(Constants.TURRET_POS_AT_MAX_ANGLE, raw));
     }
 }

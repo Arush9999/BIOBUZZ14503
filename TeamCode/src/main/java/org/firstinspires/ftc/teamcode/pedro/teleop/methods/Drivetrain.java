@@ -80,8 +80,6 @@ public class Drivetrain {
         return RB;
     }
 
-    // ---------------- Ivy helper commands ----------------
-
     public Command teleOpCommand(DoubleSupplier forward, DoubleSupplier strafe, DoubleSupplier turn) {
         return infinite(() -> drive(
                 forward.getAsDouble(),

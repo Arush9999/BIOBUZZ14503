@@ -8,10 +8,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
-/**
- * Flower intake flap servo.
- * Starts up. Bumper toggle: go to down if not already there, otherwise go up.
- */
+/** Flower intake flap. Starts up; toggle goes down if not already there, else up. */
 public class FlowerFlap {
 
     private final Servo flowerFlap;
@@ -35,9 +32,6 @@ public class FlowerFlap {
         setPosition(Constants.FLOWER_FLAP_DOWN);
     }
 
-    /**
-     * If already down, go up. Otherwise go down.
-     */
     public void toggle() {
         if (Math.abs(position - Constants.FLOWER_FLAP_DOWN) < Constants.FLOWER_FLAP_TOLERANCE) {
             up();
@@ -68,15 +62,5 @@ public class FlowerFlap {
 
     public Command downCommand() {
         return instant(this::down);
-    }
-
-    /** @deprecated use {@link #downCommand()} */
-    public Command closeCommand() {
-        return downCommand();
-    }
-
-    /** @deprecated use {@link #upCommand()} */
-    public Command openCommand() {
-        return upCommand();
     }
 }
