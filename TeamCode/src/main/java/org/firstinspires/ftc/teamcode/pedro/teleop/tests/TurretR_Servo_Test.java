@@ -24,8 +24,8 @@ public class TurretR_Servo_Test extends LinearOpMode {
         double position = angleToPos(angleDeg);
         turretR.setPosition(position);
 
-        telemetry.addLine("TurretR positional (NOT continuous)");
-        telemetry.addLine("A/B = +/-5 deg   X = min   Y = max   BACK = 0 deg");
+        telemetry.addLine("TurretR positional (NOT continuous) — PS5");
+        telemetry.addLine("Cross/Circle = +/-5 deg   Square = min   Triangle = max   Share = 0 deg");
         telemetry.update();
 
         waitForStart();
@@ -33,42 +33,42 @@ public class TurretR_Servo_Test extends LinearOpMode {
             return;
         }
 
-        boolean aWasPressed = false;
-        boolean bWasPressed = false;
-        boolean xWasPressed = false;
-        boolean yWasPressed = false;
-        boolean backWasPressed = false;
+        boolean crossWasPressed = false;
+        boolean circleWasPressed = false;
+        boolean squareWasPressed = false;
+        boolean triangleWasPressed = false;
+        boolean shareWasPressed = false;
 
         while (opModeIsActive()) {
-            if (gamepad1.x && !xWasPressed) {
+            if (gamepad1.square && !squareWasPressed) {
                 angleDeg = Constants.TURRET_MIN_ANGLE;
-            } else if (gamepad1.y && !yWasPressed) {
+            } else if (gamepad1.triangle && !triangleWasPressed) {
                 angleDeg = Constants.TURRET_MAX_ANGLE;
-            } else if (gamepad1.back && !backWasPressed) {
+            } else if (gamepad1.share && !shareWasPressed) {
                 angleDeg = 0.0;
-            } else if (gamepad1.a && !aWasPressed) {
+            } else if (gamepad1.cross && !crossWasPressed) {
                 angleDeg = Range.clip(
                         angleDeg + ANGLE_STEP,
                         Constants.TURRET_MIN_ANGLE,
                         Constants.TURRET_MAX_ANGLE);
-            } else if (gamepad1.b && !bWasPressed) {
+            } else if (gamepad1.circle && !circleWasPressed) {
                 angleDeg = Range.clip(
                         angleDeg - ANGLE_STEP,
                         Constants.TURRET_MIN_ANGLE,
                         Constants.TURRET_MAX_ANGLE);
             }
 
-            aWasPressed = gamepad1.a;
-            bWasPressed = gamepad1.b;
-            xWasPressed = gamepad1.x;
-            yWasPressed = gamepad1.y;
-            backWasPressed = gamepad1.back;
+            crossWasPressed = gamepad1.cross;
+            circleWasPressed = gamepad1.circle;
+            squareWasPressed = gamepad1.square;
+            triangleWasPressed = gamepad1.triangle;
+            shareWasPressed = gamepad1.share;
 
             position = Range.clip(angleToPos(angleDeg), Constants.TURRET_MIN, Constants.TURRET_MAX);
             turretR.setPosition(position);
 
-            telemetry.addLine("TurretR positional (NOT continuous)");
-            telemetry.addLine("A/B = +/-5 deg   X = min   Y = max   BACK = 0 deg");
+            telemetry.addLine("TurretR positional (NOT continuous) — PS5");
+            telemetry.addLine("Cross/Circle = +/-5 deg   Square = min   Triangle = max   Share = 0 deg");
             telemetry.addData("angle deg", "%.1f", angleDeg);
             telemetry.addData("servo pos", "%.4f", position);
             telemetry.addData("pos limits", "%.2f .. %.2f",

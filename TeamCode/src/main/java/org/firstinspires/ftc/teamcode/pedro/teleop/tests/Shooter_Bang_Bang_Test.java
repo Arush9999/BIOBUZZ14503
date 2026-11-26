@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Intake;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Transfer;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
@@ -22,21 +23,21 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
  *   velocity &gt; target + HYSTERESIS  -> coast (0)
  *   inside the band                 -> hold last state (stops chatter)
  *
- * Controls:
- *   START / L3 = toggle shooter
- *   Dpad U/D   = target ± TARGET_STEP
- *   Dpad L/R   = hysteresis ± HYSTERESIS_STEP
- *   RT / LT    = intake in / out
- *   RB         = transfer forward (feed)
+ * PS5 controls (Options + Cross to link):
+ *   Options / L3 = toggle shooter
+ *   Dpad U/D     = target ± TARGET_STEP
+ *   Dpad L/R     = hysteresis ± HYSTERESIS_STEP
+ *   R2 / L2      = intake in / out
+ *   R1           = transfer forward (feed)
  *   Turret held at 0.5 (forward)
  */
 @Config
 @TeleOp(name = "Shooter_BangBang", group = "Testing")
-public class Shooter_BangBang extends OpMode {
+public class Shooter_Bang_Bang_Test extends OpMode {
 
-    public static double TARGET_VELOCITY = 1800; // ticks/s
-    public static double HYSTERESIS = 40;        // ticks/s each side of target
-    public static double ON_POWER = 1.0;         // power when below the band
+    public static double TARGET_VELOCITY = Constants.SHOOTER_TARGET_VELOCITY;
+    public static double HYSTERESIS = Constants.SHOOTER_HYSTERESIS;
+    public static double ON_POWER = Constants.SHOOTER_ON_POWER;
     public static double TARGET_STEP = 25;
     public static double HYSTERESIS_STEP = 5;
     public static double TURRET_HOLD = 0.5;
@@ -70,10 +71,10 @@ public class Shooter_BangBang extends OpMode {
         turret = new Turret(hardwareMap);
         turret.setPosition(TURRET_HOLD);
 
-        telemetry.addLine("SHOOTER BANG-BANG");
-        telemetry.addLine("START / L3 = toggle shooter");
+        telemetry.addLine("SHOOTER BANG-BANG (PS5)");
+        telemetry.addLine("Options / L3 = toggle shooter");
         telemetry.addLine("Dpad U/D = target | L/R = hysteresis");
-        telemetry.addLine("RT/LT = intake | RB = transfer feed");
+        telemetry.addLine("R2/L2 = intake | R1 = transfer feed");
         telemetry.addLine("Turret held at 0.5");
         telemetry.update();
     }
@@ -148,7 +149,7 @@ public class Shooter_BangBang extends OpMode {
     }
 
     private void handleButtons() {
-        boolean toggle = gamepad1.start || gamepad1.left_stick_button;
+        boolean toggle = gamepad1.options || gamepad1.left_stick_button;
         if (toggle && !lastToggle) {
             running = !running;
             if (running) {

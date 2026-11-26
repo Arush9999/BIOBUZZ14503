@@ -7,14 +7,14 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.LimelightVision;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
-import org.firstinspires.ftc.teamcode.pedro.teleop.methods.HiveTurretAim;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.VisionTurretAim;
 
 @TeleOp(name = "Vision Turret Aim", group = "tests")
 public class VisionTurretAimTest extends OpMode {
 
     private LimelightVision vision;
     private Turret turret;
-    private HiveTurretAim aim;
+    private VisionTurretAim aim;
 
     private boolean redAlliance = true;
     private boolean aimEnabled = true;
@@ -27,7 +27,7 @@ public class VisionTurretAimTest extends OpMode {
 
         vision = new LimelightVision(hardwareMap, redAlliance);
         turret = new Turret(hardwareMap);   // starts at TURRET_CENTER
-        aim = new HiveTurretAim(vision, turret);
+        aim = new VisionTurretAim(vision, turret);
 
         telemetry.addLine("Vision Turret Aim ready");
         telemetry.update();

@@ -6,10 +6,6 @@ import static com.pedropathing.ivy.commands.Commands.waitMs;
 import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.INTAKE_POWER;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_F;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_I;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_P;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_TARGET_VELOCITY;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.TRANSFER_REVERSE_POWER;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.TRANSFER_SHOOT_POWER;
@@ -27,20 +23,21 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Shooter;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Transfer;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 
-@Autonomous(name = "Red_Left_Scrimmage_2_Tip", group = "Auto")
-public class Red_Left_Scrimmage_2_Tip extends OpMode {
+@Autonomous(name = "Blue_Left_M1_1_Tip_Insurance", group = "Auto")
+public class Blue_Left_M1_1_Tip_Insurance extends OpMode {
 
     private static final double PATH_SPEED = 1;
     private static final double SLOW_SPEED = 0.25;
-    private static final double PICKUP_SPEED = 0.5;
-    private static final long PRELOAD_SPINUP_MS = 6000;
-    private static final long PRELOAD_SHOT_MS = 7500;
-    private static final long FLAP_DEPLOY_MS = 250;
-    private static final double TURRET_PRELOAD_POS = 0.21;
-    private static final double TURRET_PATH4_POS = 0.24;
-    private static final double TURRET_PATH8_POS = 0.24;
+    private static final long PRELOAD_SPINUP_MS = 5000;
+    private static final long PRELOAD_SHOT_MS = 1500;
+    private static final long SHOT_MS = 1500;
+    private static final long PRE_SHOT_WAIT_MS = 1000;
+    private static final long INTAKE_WAIT_MS = 500;
+    private static final double TURRET_PRELOAD_POS = 0.225;
+    private static final double TURRET_PATH4_POS = 0.225;
 
-    private final Paths_Red_Left_Scrimmage_2_Tip paths = new Paths_Red_Left_Scrimmage_2_Tip();
+    private final Paths_Blue_Left_M1_1_Tip_Insurance paths =
+            new Paths_Blue_Left_M1_1_Tip_Insurance();
     private Follower follower;
     private Intake intake;
     private Transfer transfer;
@@ -53,12 +50,6 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
     @Override
     public void init() {
         Scheduler.reset();
-
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_P = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_I = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D = 0.0;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_F = 14.5;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_D_FILTER = 0.18;
         org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_TARGET_VELOCITY = 1825;
 
         follower = Constants.create(hardwareMap);
@@ -67,14 +58,11 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
         transfer = new Transfer(hardwareMap);
         shooter = new Shooter(hardwareMap);
         shooter.setTargetVelocity(SHOOTER_TARGET_VELOCITY);
-        shooter.applyPIDF();
         turret = new Turret(hardwareMap);
         turret.setPosition(TURRET_PRELOAD_POS);
         flowerFlap = new FlowerFlap(hardwareMap);
 
-        telemetry.addLine("Red_Left_Scrimmage_2_Tip");
-        telemetry.addData("Shooter PIDF", "%.1f / %.1f / %.1f / %.1f",
-                SHOOTER_P, SHOOTER_I, SHOOTER_D, SHOOTER_F);
+        telemetry.addLine("Blue_Left_M1_1_Tip_Insurance");
         telemetry.addData("Target vel", "%.0f", SHOOTER_TARGET_VELOCITY);
         telemetry.update();
     }
@@ -83,29 +71,17 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
     public void start() {
         schedule(sequential(
                 shooter.spinUpCommand(SHOOTER_TARGET_VELOCITY),
+                follow(follower, paths.path1()),
                 preloadShot(),
 
-                follow(follower, paths.path1()),
-                follow(follower, paths.path2().with(Constants.foresightConfig.maxPathSpeed.at(SLOW_SPEED))),
-                waitMs(500),
+                follow(follower, paths.path2().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
+                follow(follower, paths.path3().with(Constants.foresightConfig.maxPathSpeed.at(SLOW_SPEED))),
+                waitMs(INTAKE_WAIT_MS),
 
-                follow(follower, paths.path3().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
                 follow(follower, paths.path4().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                instant(() -> turret.setPosition(TURRET_PATH4_POS)),
-                transferOnWait(1500), // shot after path 4
+                shotAfterPath(TURRET_PATH4_POS),
 
-                flowerFlap.downCommand(),
-                waitMs(FLAP_DEPLOY_MS),
-                follow(follower, paths.path5().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                follow(follower, paths.path6().with(Constants.foresightConfig.maxPathSpeed.at(PICKUP_SPEED))),
-                waitMs(1000),
-                follow(follower, paths.path7().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                follow(follower, paths.path8().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED))),
-                instant(() -> turret.setPosition(TURRET_PATH8_POS)),
-                transferOnWait(1500), // shot after path 8
-
-                flowerFlap.upCommand(),
-                follow(follower, paths.path9().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED)))
+                follow(follower, paths.path5().with(Constants.foresightConfig.maxPathSpeed.at(PATH_SPEED)))
         ));
     }
 
@@ -125,10 +101,8 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
         telemetry.addData("Shooter", shooter.isRunning() ? "ON" : "OFF");
         telemetry.addData("targetVelocity", shooter.getTargetVelocity());
         telemetry.addData("actualVelocity", shooter.getShooter().getVelocity());
-        telemetry.addData("P/I/D/F", "%.1f / %.1f / %.1f / %.1f",
-                SHOOTER_P, SHOOTER_I, SHOOTER_D, SHOOTER_F);
-        telemetry.addData("compensatedF", "%.2f", shooter.getCompensatedF());
-        telemetry.addData("batteryV", "%.2f", shooter.getBatteryVoltage());
+        telemetry.addData("Bang", shooter.isBangOn() ? "FULL" : "COAST");
+        telemetry.addData("Power", "%.2f", shooter.getLastPower());
         telemetry.addData("Flower flap", flowerFlap.getPosition());
         telemetry.update();
     }
@@ -153,8 +127,16 @@ public class Red_Left_Scrimmage_2_Tip extends OpMode {
                 waitMs(PRELOAD_SPINUP_MS),
                 instant(() -> intakePower = INTAKE_POWER),
                 instant(this::transferForward),
-                waitMs(PRELOAD_SHOT_MS - PRELOAD_SPINUP_MS),
+                waitMs(PRELOAD_SHOT_MS),
                 instant(this::transferReverse)
+        );
+    }
+
+    private Command shotAfterPath(double turretPos) {
+        return sequential(
+                waitMs(PRE_SHOT_WAIT_MS),
+                instant(() -> turret.setPosition(turretPos)),
+                transferOnWait(SHOT_MS)
         );
     }
 
