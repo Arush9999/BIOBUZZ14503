@@ -5,21 +5,19 @@ import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Drivetrain;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
 
 import java.util.List;
 
 @TeleOp(name = "LLTester")
 public class LimelightIDTester extends LinearOpMode {
     private Limelight3A limelight;
-    private DcMotor LF, RF, LB, RB;
+    private Drivetrain drive;
+    private Turret turret;
 
-    // TODO: Measure and set these constants physically on robot (all heights in cm)
     private final double camHeight = 36;   // cm
     private final double tagHeight = 135.9;  // cm
     private final double targetHeight = (135.9 + 166.6) / 2;
@@ -27,21 +25,13 @@ public class LimelightIDTester extends LinearOpMode {
     private int lastId = -1;
 
     private final int[] redIDs = {30, 31, 32, 33, 34, 35, 36, 37};
-    public static double DRIVE_SPEED = 1.0;
     public static double SLOW_SPEED = 0.40;
 
-
-    // turret constants
-    private Servo tL;
-    private Servo tR;
-    public static double TURRET_CENTER = 0.5;
-    public static double TURRET_SIGN = -1;
-    public static double DEG_PER_SERVO = 315;
-    public static double TURRET_MIN = 0.2, TURRET_MAX = 0.8;
-
-    public static double TURRET_KP = 0.3;
+    // change to -1 if the turret turns away from the tag
+    public static double AIM_SIGN = 1;
+    public static double kp = 0.3;
     public static double error = 0.5;
-    private double turretDeg = 0;
+    private long lastFrameTime = -1;
     private boolean tracking = false;
 
     @Override
@@ -50,24 +40,19 @@ public class LimelightIDTester extends LinearOpMode {
         limelight.pipelineSwitch(0);
         limelight.start();
 
-        LF = hardwareMap.get(DcMotorEx.class, "LF");
-        RF = hardwareMap.get(DcMotorEx.class, "RF");
-        LB = hardwareMap.get(DcMotorEx.class, "LB");
-        RB = hardwareMap.get(DcMotorEx.class, "RB");
 
-        LF.setDirection(DcMotorSimple.Direction.FORWARD);
-        LB.setDirection(DcMotorSimple.Direction.FORWARD);
-        RF.setDirection(DcMotorSimple.Direction.REVERSE);
-        RB.setDirection(DcMotorSimple.Direction.REVERSE);
-
-        tL = hardwareMap.get(Servo.class, "turretL");
-        tR = hardwareMap.get(Servo.class, "turretR");
-        tR.setDirection(Servo.Direction.REVERSE);
+        drive = new Drivetrain(hardwareMap);
+        turret = new Turret(hardwareMap);
 
         waitForStart();
 
+        turret.center();
+
         while (opModeIsActive()) {
-            driveRobot();
+            double speed = gamepad1.left_bumper ? SLOW_SPEED : 1.0;
+            drive.drive(-gamepad1.left_stick_y * speed,
+                    gamepad1.left_stick_x * speed,
+                    gamepad1.right_stick_x * speed);
             tracking = false;
 
             LLResult result = limelight.getLatestResult();
@@ -80,9 +65,14 @@ public class LimelightIDTester extends LinearOpMode {
                     Pose3D p = tag.getTargetPoseCameraSpace();
 
                     if (result.getStaleness() < 100) {
-                        double tx = tag.getTargetXDegrees();
-                        if (Math.abs(tx) < error) tx = 0;
-                        turretDeg -= TURRET_KP * tx;
+                        long frameTime = result.getControlHubTimeStamp();
+                        if (frameTime != lastFrameTime) {
+                            lastFrameTime = frameTime;
+                            double tx = tag.getTargetXDegrees();
+                            if (Math.abs(tx) > error) {
+                                turret.setAngle(turret.getAimDegrees() + AIM_SIGN * kp * tx);
+                            }
+                        }
                         tracking = true;
                     }
 
@@ -115,8 +105,6 @@ public class LimelightIDTester extends LinearOpMode {
                         telemetry.addLine("Tag has no 3D pose (enable Full 3D in pipeline)");
                     }
 
-                    setTurretAngle(turretDeg);
-                    telemetry.addData("Turret", "%.1f° (%s)", turretDeg, tracking ? "TRACKING" : "holding");
                     telemetry.addData("Tag ID", id);
                     telemetry.addData("tx", "%.2f", tag.getTargetXDegrees());
                 } else {
@@ -125,38 +113,12 @@ public class LimelightIDTester extends LinearOpMode {
             } else {
                 telemetry.addLine("No valid Limelight result");
             }
+            telemetry.addData("Turret", "%.1f° pos %.3f (%s)",
+                    turret.getAimDegrees(), turret.getPosition(), tracking ? "TRACKING" : "holding");
             telemetry.update();
         }
+        drive.stop();
         limelight.stop();
-    }
-
-    private void driveRobot() {
-        double y = -gamepad1.left_stick_y;
-        double x = gamepad1.left_stick_x;
-        double turn = gamepad1.right_stick_x;
-
-        double speed = gamepad1.left_bumper ? SLOW_SPEED : DRIVE_SPEED; // left bumper = slow mode
-
-        double frontLeft = y + x + turn;
-        double frontRight = y - x - turn;
-        double backLeft = y - x + turn;
-        double backRight = y + x - turn;
-
-        double max = Math.max(1.0, Math.max(Math.abs(frontLeft), Math.max(Math.abs(frontRight),
-                Math.max(Math.abs(backLeft), Math.abs(backRight)))));
-
-        LF.setPower(frontLeft / max * speed);
-        RF.setPower(frontRight / max * speed);
-        LB.setPower(backLeft / max * speed);
-        RB.setPower(backRight / max * speed);
-    }
-
-    private void setTurretAngle(double angle) {
-        double pos = TURRET_CENTER + TURRET_SIGN * angle / DEG_PER_SERVO;
-        pos = Math.max(TURRET_MIN, Math.min(TURRET_MAX, pos));
-        turretDeg = (pos - TURRET_CENTER) * DEG_PER_SERVO / TURRET_SIGN;
-        tL.setPosition(pos);
-        tR.setPosition(pos);
     }
 
     private LLResultTypes.FiducialResult getBestTag(LLResult r) {
@@ -167,7 +129,6 @@ public class LimelightIDTester extends LinearOpMode {
             if (t.getTargetArea() > best.getTargetArea()) best = t;
         return best;
     }
-
     private LLResultTypes.FiducialResult getGoalTagOrBest(LLResult r) {
         List<LLResultTypes.FiducialResult> f = r.getFiducialResults();
         if (f != null) {
@@ -185,3 +146,6 @@ public class LimelightIDTester extends LinearOpMode {
         return false;
     }
 }
+
+//yeah itll get handed over to kanishka because she's more competent than me
+//of course

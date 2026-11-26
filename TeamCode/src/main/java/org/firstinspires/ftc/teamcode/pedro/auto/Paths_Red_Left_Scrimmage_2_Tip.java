@@ -28,6 +28,7 @@ public class Paths_Red_Left_Scrimmage_2_Tip {
     private final Pose point3Control = poseFactory.of(24, 12, 0);
     private final Pose point4Control = poseFactory.of(24, 130, 0);
     private final Pose point9Control = poseFactory.of(12, 130, 0);
+    private final Pose otherSideSpot = poseFactory.of(58,134,180);
 
     public Pose startPose() {
         return start;
@@ -67,6 +68,14 @@ public class Paths_Red_Left_Scrimmage_2_Tip {
 
     public Path path9() {
         return curve(point8, point9Control, point9).constant(point9);
+    }
+
+    public Path pathToOtherSide() {
+        return line(point8, otherSideSpot).linear(point8, otherSideSpot);
+    }
+
+    public Path pathOtherSideToPark() {
+        return line(otherSideSpot, point9).linear(otherSideSpot, point9);
     }
 
     public Path route() {
