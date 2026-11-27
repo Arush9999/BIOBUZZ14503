@@ -5,14 +5,15 @@ import static com.pedropathing.ivy.commands.Commands.infinite;
 import static com.pedropathing.ivy.groups.Groups.parallel;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_GOAL_X;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_GOAL_Y;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_START_X;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_START_Y;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.GOAL_X;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.GOAL_Y;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_START_OFFSET_X;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_GOAL_X;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_GOAL_Y;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_X;
-import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_Y;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_FAR_HEADING_DEG;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_FAR_X;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_FAR_Y;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_NEAR_HEADING_DEG;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_NEAR_X;
+import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_NEAR_Y;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_BURST_OFFSET;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_HYSTERESIS;
 import static org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.SHOOTER_ON_POWER;
@@ -44,14 +45,14 @@ import org.firstinspires.ftc.teamcode.pedro.teleop.methods.LimelightVision;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Shooter;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Transfer;
 import org.firstinspires.ftc.teamcode.pedro.teleop.methods.Turret;
-import org.firstinspires.ftc.teamcode.pedro.teleop.methods.VisionTurretAim;
+import org.firstinspires.ftc.teamcode.pedro.teleop.methods.TurretAutoAim;
 
 /**
  * Shared competition teleop. Alliance is fixed by subclasses
  * ({@link BIOBUZZ_TeleOp_Red} / {@link BIOBUZZ_TeleOp_Blue}).
  *
- * Y toggles Limelight AUTO AIM. A/X/B set turret presets; Dpad nudges.
- * Hive lost → odometry fallback while auto-aim is on.
+ * Y toggles hybrid {@link TurretAutoAim} (odometry + Kalman bias) ↔ FORWARD (0.5).
+ * A/X/B set turret presets; Dpad nudges.
  */
 public abstract class BIOBUZZ_TeleOp extends OpMode {
 
@@ -66,7 +67,7 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
     private Shooter shooter;
     private Turret turret;
     private LimelightVision vision;
-    private VisionTurretAim hiveAim;
+    private TurretAutoAim turretAim;
 
     private boolean lastShooterToggle = false;
     private boolean lastFlowerFlap = false;
@@ -76,8 +77,12 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
     private boolean lastTurretX = false;
     private boolean lastTurretB = false;
     private boolean redAlliance;
-    /** true = Limelight AUTO AIM (default), false = manual (A/X/B/Dpad). */
+    /** true = near wall (y=8 @ 90°), false = far wall (y=136 @ 270°). */
+    private boolean startNear = true;
+    /** true = Limelight AUTO AIM (default), false = FORWARD or manual preset. */
     private boolean autoAim = true;
+    /** True after A/X/B or Dpad — don't force holdForward over a chosen pose. */
+    private boolean manualTurret = false;
 
     private boolean feeding = false;
     private double transferPower = 0.0;
@@ -88,13 +93,14 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
 
         Scheduler.reset();
         telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+        telemetry.setMsTransmissionInterval(100);
 
         for (LynxModule hub : hardwareMap.getAll(LynxModule.class)) {
             hub.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
         follower = Constants.create(hardwareMap);
-        applyAlliance();
+        applyStartPoseConstants();
         resetStartPose();
 
         drive = new Drivetrain(hardwareMap);
@@ -103,23 +109,51 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
         flowerFlap = new FlowerFlap(hardwareMap);
         shooter = new Shooter(hardwareMap);
         turret = new Turret(hardwareMap);
+        turret.clearTrim();
+        // Point at goal from the selected start pose before hybrid takes over.
+        turret.setPosition(turret.odometryTargetPosition(follower));
 
         vision = new LimelightVision(hardwareMap, redAlliance);
-        hiveAim = new VisionTurretAim(vision, turret);
-        hiveAim.setFollower(follower);
+        turretAim = new TurretAutoAim(vision, turret);
+        turretAim.setFollower(follower); // hybrid: odometry + Kalman camera bias
         applyAim();
 
         telemetry.addLine("BIOBUZZ TELEOP " + (redAlliance ? "RED" : "BLUE") + " (PS5)");
+        telemetry.addLine("Init: Dpad Up = near (y=8@90) | Down = far (y=136@270)");
         telemetry.addLine("Shooter ON at play | Turret starts in AUTO AIM (hive)");
         addControls();
         telemetry.addData("Bang-bang", "tgt %.0f  hyst ±%.0f  on %.2f  burst %.0f  feed %.2f",
                 SHOOTER_TARGET_VELOCITY, SHOOTER_HYSTERESIS, SHOOTER_ON_POWER,
                 SHOOTER_BURST_OFFSET, TRANSFER_SHOOT_POWER);
+        showInitTelemetry();
+    }
+
+    @Override
+    public void init_loop() {
+        if (gamepad1.dpad_up && !startNear) {
+            startNear = true;
+            applyStartPoseConstants();
+            resetStartPose();
+        }
+        if (gamepad1.dpad_down && startNear) {
+            startNear = false;
+            applyStartPoseConstants();
+            resetStartPose();
+        }
+        showInitTelemetry();
+    }
+
+    private void showInitTelemetry() {
+        telemetry.addData("Start side", startNear ? "NEAR" : "FAR");
+        telemetry.addData("Start pose", "%.0f, %.0f @ %.0f°",
+                START_X, START_Y, START_HEADING_DEG);
+        telemetry.addData("Turret @ start", "%.3f",
+                turret != null ? turret.getPosition() : Double.NaN);
         telemetry.update();
     }
 
     private void applyAim() {
-        hiveAim.setActive(autoAim);
+        turretAim.setActive(autoAim);
     }
 
     @Override
@@ -136,8 +170,8 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
                         () -> gamepad1.right_trigger,
                         () -> gamepad1.left_trigger
                 ),
-                hiveAim.senseCommand(),
-                hiveAim.adjustCommand(),
+                turretAim.senseCommand(),
+                turretAim.adjustCommand(),
                 infinite(this::updateFeed),
                 infinite(this::updateTurretAim),
                 infinite(this::handleButtons),
@@ -193,10 +227,14 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
         }
         lastFlowerFlap = flowerToggle;
 
-        // Y = auto aim toggle
+        // Y = auto aim ↔ forward (0.5), same as HiveTeleOp V2
         if (gamepad1.y && !lastAutoAimToggle) {
             autoAim = !autoAim;
+            manualTurret = false;
             turret.clearTrim();
+            if (!autoAim) {
+                turret.holdForward();
+            }
             applyAim();
         }
         lastAutoAimToggle = gamepad1.y;
@@ -225,41 +263,71 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
 
     private void setManualTurret(double position) {
         autoAim = false;
+        manualTurret = true;
         applyAim();
         turret.clearTrim();
         turret.setPosition(position);
     }
 
     private void updateTurretAim() {
-        // Dpad L/R = nudge turret position (manual; turns auto aim off)
+        // Dpad L/R = nudge (leaves AUTO AIM for manual control)
         if (gamepad1.dpad_right || gamepad1.dpad_left) {
             if (autoAim) {
                 autoAim = false;
                 applyAim();
                 turret.clearTrim();
             }
+            manualTurret = true;
             if (gamepad1.dpad_right) {
                 turret.nudge(TURRET_STEP);
             }
             if (gamepad1.dpad_left) {
                 turret.nudge(-TURRET_STEP);
             }
+            return;
+        }
+
+        // FORWARD (Y off, no preset): hold 0.5. AUTO AIM: TurretAutoAim owns the turret.
+        if (!autoAim && !manualTurret) {
+            turret.holdForward();
         }
     }
 
-    private void applyAlliance() {
+    private void applyStartPoseConstants() {
+        double sx = startNear ? RED_START_NEAR_X : RED_START_FAR_X;
+        double sy = startNear ? RED_START_NEAR_Y : RED_START_FAR_Y;
+        double sh = startNear ? RED_START_NEAR_HEADING_DEG : RED_START_FAR_HEADING_DEG;
+        if (!redAlliance) {
+            sx += BLUE_START_OFFSET_X;
+        }
+
         org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.GOAL_X =
                 redAlliance ? RED_GOAL_X : BLUE_GOAL_X;
         org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.GOAL_Y =
                 redAlliance ? RED_GOAL_Y : BLUE_GOAL_Y;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.START_X =
-                redAlliance ? RED_START_X : BLUE_START_X;
-        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.START_Y =
-                redAlliance ? RED_START_Y : BLUE_START_Y;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.START_X = sx;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.START_Y = sy;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.START_HEADING_DEG = sh;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_X =
+                startNear ? RED_START_NEAR_X : RED_START_FAR_X;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_Y =
+                startNear ? RED_START_NEAR_Y : RED_START_FAR_Y;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_START_X =
+                org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_X
+                        + BLUE_START_OFFSET_X;
+        org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.BLUE_START_Y =
+                org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants.RED_START_Y;
     }
 
     private void resetStartPose() {
         follower.setPose(PoseFactory.degrees().of(START_X, START_Y, START_HEADING_DEG));
+        if (turret != null) {
+            turret.clearTrim();
+            turret.setPosition(turret.odometryTargetPosition(follower));
+            if (turretAim != null) {
+                turretAim.reset();
+            }
+        }
     }
 
     private String shooterStatus() {
@@ -275,33 +343,21 @@ public abstract class BIOBUZZ_TeleOp extends OpMode {
     private void showTelemetry() {
         Pose pose = follower.pose();
 
-        telemetry.addLine("===== BIOBUZZ TELEOP " + (redAlliance ? "RED" : "BLUE") + " =====");
-        telemetry.addData("Shooter", shooterStatus());
-        telemetry.addData("Speed / target", "%.0f / %.0f",
-                shooter.getVelocity(), shooter.getTargetVelocity());
-        telemetry.addData("Shot speeds", shooter.shotSpeedsText());
-        telemetry.addData("Shot spread", "%.1f %% (first to last %.1f %%)",
-                shooter.getShotSpreadPercent(), shooter.getShotDropPercent());
-        telemetry.addData("Recovery s", shooter.shotRecoveryText());
-        telemetry.addData("Battery", "%.2f V", shooter.getBatteryVoltage());
-        telemetry.addData("Shooter power", "%.2f (%s)", shooter.getLastPower(), shooter.getMode());
-        telemetry.addData("Bang-bang", "tgt %.0f  hyst ±%.0f  burst %.0f  feed %.2f",
-                SHOOTER_TARGET_VELOCITY, SHOOTER_HYSTERESIS, SHOOTER_BURST_OFFSET,
-                TRANSFER_SHOOT_POWER);
-        telemetry.addData("Transfer", "%.2f", transferPower);
-        telemetry.addData("Loop", "%.0f ms", shooter.getLoopMs());
         telemetry.addData("Alliance", redAlliance ? "RED" : "BLUE");
-        telemetry.addData("Turret mode", autoAim ? "AUTO AIM (hive)" : "MANUAL");
-        telemetry.addData("Goal", "%.0f / %.0f", GOAL_X, GOAL_Y);
-        telemetry.addData("Flower flap", "%.2f", flowerFlap.getPosition());
-        telemetry.addData("Turret pos / deg", "%.3f / %.1f",
-                turret.getPosition(), turret.getAimDegrees());
-        telemetry.addData("Pose X/Y/H", "%.1f / %.1f / %.1f",
+        telemetry.addData("Start", "%s  %.0f, %.0f @ %.0f°",
+                startNear ? "NEAR" : "FAR", START_X, START_Y, START_HEADING_DEG);
+        telemetry.addData("Shooter", shooterStatus());
+        telemetry.addData("Speed / tgt", "%.0f / %.0f",
+                shooter.getVelocity(), shooter.getTargetVelocity());
+        telemetry.addData("Power", "%.2f (%s)", shooter.getLastPower(), shooter.getMode());
+        telemetry.addData("Transfer", "%.2f", transferPower);
+        telemetry.addData("Turret", "%s  pos %.3f",
+                autoAim ? "AUTO" : "MANUAL", turret.getPosition());
+        telemetry.addData("Pose", "%.1f, %.1f @ %.0f",
                 pose.x(), pose.y(), Math.toDegrees(pose.heading()));
-        telemetry.addData("Cell tags 0 / 1", "%d / %d",
+        telemetry.addData("Tags 0/1", "%d / %d",
                 vision.getVisibleTagCount(0), vision.getVisibleTagCount(1));
-        hiveAim.addTelemetry(telemetry);
-        addControls();
+        turretAim.addTelemetry(telemetry);
         telemetry.update();
     }
 

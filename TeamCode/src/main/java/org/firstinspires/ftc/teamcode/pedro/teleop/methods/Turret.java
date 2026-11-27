@@ -98,7 +98,15 @@ public class Turret {
         aimAt(follower, Constants.GOAL_X, Constants.GOAL_Y);
     }
 
-    public void aimAt(Follower follower, double goalX, double goalY) {
+    /**
+     * Servo position that points at the goal from the current Pinpoint pose
+     * (no trim, no slew). Used by hybrid aim every loop.
+     */
+    public double odometryTargetPosition(Follower follower) {
+        return odometryTargetPosition(follower, Constants.GOAL_X, Constants.GOAL_Y);
+    }
+
+    public double odometryTargetPosition(Follower follower, double goalX, double goalY) {
         Pose pose = follower.pose();
         double headingRad = pose.heading();
         double thetaRobot = Math.toDegrees(headingRad);
@@ -119,9 +127,18 @@ public class Turret {
         turretTarget = normalizeAngle(turretTarget);
         turretTarget = -turretTarget + Constants.TURRET_POSITION_OFFSET;
 
-        double targetPos = angleToServo(normalizeAngle(turretTarget)) + trimPos;
+        return angleToServo(normalizeAngle(turretTarget));
+    }
+
+    /** Slew toward a servo target without wrapping through the rear. */
+    public void slewTo(double targetPos) {
         aimLimited = targetPos <= Constants.TURRET_MIN || targetPos >= Constants.TURRET_MAX;
         slewPositionTo(targetPos);
+    }
+
+    public void aimAt(Follower follower, double goalX, double goalY) {
+        double targetPos = odometryTargetPosition(follower, goalX, goalY) + trimPos;
+        slewTo(targetPos);
     }
 
     public Command centerCommand() {

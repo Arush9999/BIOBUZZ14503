@@ -67,19 +67,32 @@ public class Constants {
     public static double TURRET_OFFSET_Y = 0.0;
 
     // ---- Auto aim / start pose (field inches) ----
-    /** Active goal / start — updated by alliance select. */
+    /** Active goal / start — updated by alliance + near/far select. */
     public static double GOAL_X = 58.0;
     public static double GOAL_Y = 72.0;
-    public static double START_X = 12.0;
-    public static double START_Y = 120.0;
-    public static double START_HEADING_DEG = 0.0;
+    public static double START_X = 60.0;
+    public static double START_Y = 8.0;
+    public static double START_HEADING_DEG = 90.0;
 
     public static double RED_GOAL_X = 58.0;
     public static double RED_GOAL_Y = 72.0;
     public static double BLUE_GOAL_X = 84.0;
     public static double BLUE_GOAL_Y = 72.0;
-    public static double RED_START_X = 12.0;
-    public static double RED_START_Y = 120.0;
-    public static double BLUE_START_X = 12.0;
-    public static double BLUE_START_Y = 120.0;
+
+    /** Red near wall: (60, 8) @ 90°. Far wall: (60, 136) @ 270°. */
+    public static double RED_START_NEAR_X = 60.0;
+    public static double RED_START_NEAR_Y = 8.0;
+    public static double RED_START_NEAR_HEADING_DEG = 90.0;
+    public static double RED_START_FAR_X = 60.0;
+    public static double RED_START_FAR_Y = 136.0;
+    public static double RED_START_FAR_HEADING_DEG = 270.0;
+
+    /** Blue = red + 24 in X (same Y / heading). */
+    public static double BLUE_START_OFFSET_X = 24.0;
+
+    // Active copies used by pose reset (filled by applyAlliance).
+    public static double RED_START_X = RED_START_NEAR_X;
+    public static double RED_START_Y = RED_START_NEAR_Y;
+    public static double BLUE_START_X = RED_START_NEAR_X + BLUE_START_OFFSET_X;
+    public static double BLUE_START_Y = RED_START_NEAR_Y;
 }
