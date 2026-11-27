@@ -17,13 +17,11 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Bang-bang flywheel speed loop with hysteresis, plus TeleOp helpers
- * (ready check, feed burst offset, shot tracking, battery for feed volts).
+ * Bang-bang flywheel with hysteresis, ready check, feed burst offset, and shot tracking.
  *
- * Each update:
- *   velocity &lt; target - HYSTERESIS  -> ON_POWER
- *   velocity &gt; target + HYSTERESIS  -> coast (0)
- *   inside the band                 -> hold last state (stops chatter)
+ *   velocity &lt; target − HYSTERESIS → ON_POWER
+ *   velocity &gt; target + HYSTERESIS → coast
+ *   inside the band                 → hold last state
  */
 public class Shooter {
 
@@ -37,7 +35,6 @@ public class Shooter {
     private boolean running = false;
     private boolean feeding = false;
     private boolean bangOn = false;
-    private double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
 
     private double velocity = 0.0;
     private double smoothVelocity = 0.0;
@@ -51,7 +48,6 @@ public class Shooter {
     private long lastVoltageNs = 0L;
     private String mode = "OFF";
 
-    // Shot tracking
     private final long[] windowNs = new long[WINDOW_SIZE];
     private final double[] windowVel = new double[WINDOW_SIZE];
     private int windowHead = 0;
@@ -77,23 +73,21 @@ public class Shooter {
         }
         double volts = readBatteryVoltage();
         batteryVoltage = Double.isNaN(volts) ? FALLBACK_VOLTAGE : volts;
-
         sendPower(0.0);
     }
 
     public void setTargetVelocity(double velocity) {
-        targetVelocity = Math.max(0, velocity);
-        Constants.SHOOTER_TARGET_VELOCITY = targetVelocity;
+        Constants.SHOOTER_TARGET_VELOCITY = Math.max(0, velocity);
     }
 
     public double getTargetVelocity() {
-        return targetVelocity;
+        return Constants.SHOOTER_TARGET_VELOCITY;
     }
 
     public void setRunning(boolean running) {
         this.running = running;
         if (running) {
-            bangOn = true; // spin up immediately when enabled
+            bangOn = true;
         } else {
             resetState();
             bangOn = false;
@@ -116,8 +110,8 @@ public class Shooter {
     }
 
     /**
-     * Transfer is pushing balls in. Raises target by BURST_OFFSET and watches
-     * for each ball's speed drop.
+     * Transfer is pushing balls in. Raises target by {@link Constants#SHOOTER_BURST_OFFSET}
+     * and watches for each ball's speed drop.
      */
     public void setFeeding(boolean feeding) {
         if (feeding == this.feeding) {
@@ -155,6 +149,7 @@ public class Shooter {
         }
         updateVoltage(now);
 
+        double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
         if (!running || targetVelocity <= 0) {
             mode = "OFF";
             bangOn = false;
@@ -191,11 +186,6 @@ public class Shooter {
     }
 
     public double getVelocity() {
-        return velocity;
-    }
-
-    /** Alias for {@link #getVelocity()}. */
-    public double getRawVelocity() {
         return velocity;
     }
 
@@ -241,6 +231,7 @@ public class Shooter {
     }
 
     public double getShotSpreadPercent() {
+        double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
         if (shotCount < 2 || targetVelocity <= 0) {
             return 0.0;
         }
@@ -254,6 +245,7 @@ public class Shooter {
     }
 
     public double getShotDropPercent() {
+        double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
         if (shotCount < 2 || targetVelocity <= 0) {
             return 0.0;
         }
@@ -354,6 +346,7 @@ public class Shooter {
         }
 
         double speed = smoothVelocity;
+        double targetVelocity = Constants.SHOOTER_TARGET_VELOCITY;
         if (inDip) {
             dipMin = Math.min(dipMin, speed);
             if (speed >= dipMin + Constants.SHOOTER_SHOT_REARM * targetVelocity) {
@@ -406,8 +399,6 @@ public class Shooter {
         }
         return max;
     }
-
-    // ---------------- Ivy helper commands ----------------
 
     public Command updateCommand() {
         return infinite(this::update);

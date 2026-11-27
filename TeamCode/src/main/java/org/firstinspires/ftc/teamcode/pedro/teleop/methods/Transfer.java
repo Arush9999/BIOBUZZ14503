@@ -24,8 +24,7 @@ public class Transfer {
     }
 
     /**
-     * Transfer reverses whenever intake is active.
-     * Bumper override runs transfer forward/shoot (wired to RB in teleop).
+     * Bumper override feeds forward (shoot). Otherwise reverses while intake is active.
      */
     public void run(boolean intakeActive, boolean forwardBumper) {
         if (forwardBumper) {
@@ -55,8 +54,6 @@ public class Transfer {
     public DcMotor getTransfer() {
         return transfer;
     }
-
-    // ---------------- Ivy helper commands ----------------
 
     public Command teleOpCommand(DoubleSupplier intakeForward, DoubleSupplier intakeReverse,
                                  BooleanSupplier forwardBumper) {

@@ -9,10 +9,12 @@ import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.pedro.misc.Constants;
 
+@Disabled
 @Autonomous(name = "Template_Auto")
 public class Template_Auto extends OpMode {
 
