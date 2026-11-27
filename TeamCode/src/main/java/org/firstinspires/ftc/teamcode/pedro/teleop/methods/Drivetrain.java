@@ -2,14 +2,20 @@ package org.firstinspires.ftc.teamcode.pedro.teleop.methods;
 
 import static com.pedropathing.ivy.commands.Commands.infinite;
 import static com.pedropathing.ivy.commands.Commands.instant;
+import static com.pedropathing.ivy.groups.Groups.loop;
 
 import com.pedropathing.ivy.Command;
+import com.pedropathing.math.Vector2D;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.pedro.teleop.constants.Constants;
 
+import java.util.List;
+import java.util.Vector;
 import java.util.function.DoubleSupplier;
 
 public class Drivetrain {
@@ -91,4 +97,34 @@ public class Drivetrain {
     public Command stopCommand() {
         return instant(this::stop);
     }
+
+    public Vector2D calculateRepulsion(Pose2D robotPose, List<CircleObstacle> obstacles) {
+        double totalFx = 0;
+        double totalFy = 0;
+
+        for (CircleObstacle obs : obstacles) {
+            double dx = robotPose.getX(DistanceUnit.INCH) - obs.x;
+            double dy = robotPose.getY(DistanceUnit.INCH) - obs.y;
+            double distToCenter = Math.hypot(dx, dy);
+
+            // Distance from robot edge (approx 9 in) to obstacle edge
+            double surfaceDist = distToCenter - obs.radius - 9.0;
+
+            if (surfaceDist < obs.influenceRadius) {
+                // Clamp minimum distance to prevent division by zero / infinite spikes
+                double safeDist = Math.max(surfaceDist, 1.0);
+
+                double magnitude = obs.kRep * (1.0 / safeDist - 1.0 / obs.influenceRadius) / (safeDist * safeDist);
+
+                // Normalize direction vector (away from obstacle)
+                double ux = dx / distToCenter;
+                double uy = dy / distToCenter;
+
+                totalFx += magnitude * ux;
+                totalFy += magnitude * uy;
+            }
+        }
+        return Vector2D.cartesian(totalFx, totalFy);
+    }
+
 }

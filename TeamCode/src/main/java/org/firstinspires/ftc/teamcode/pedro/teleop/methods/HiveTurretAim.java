@@ -188,7 +188,7 @@ public class HiveTurretAim {
             currentCell = -1;
             switchVotes = 0;
             if (follower != null) {
-                turret.aimAtGoal(follower);
+                turret.update(follower);
             }
         }
     }
